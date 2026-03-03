@@ -1,6 +1,7 @@
 # Environment & secrets
 .env
 config.json
+test_autopush.py
 
 # Generated outputs (optionally track structure only)
 out/
