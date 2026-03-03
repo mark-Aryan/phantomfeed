@@ -29,3 +29,6 @@ htmlcov/
 
 # Docker
 *.log
+
+.DS_Store
+*.db-journal

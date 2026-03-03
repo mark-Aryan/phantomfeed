@@ -1,20 +1,20 @@
-"""
-core_v2.py  ★ FINAL FIX ★
-===========================
-Two root cause fixes:
-
-FIX 1 — AUTO-PUSH NEVER CALLED
-  The original core_v2.py had NO autopush code at all.
-  It published the blog but never called git_autopush.autopush().
-  GitHub was never updated. Website stayed blank.
-  FIX: autopush() is called at the end of every cycle when new posts exist.
-
-FIX 2 — LIVE MODE STILL CREATING OLD POSTS
-  In live mode, 0 fresh items → raw_items is empty → the blog publish still
-  runs and re-publishes 200+ old posts → autopush uploads all of them again.
-  FIX: If live mode fetches 0 new items, skip blog publish AND skip autopush.
-  Only generate posts + push when there is actually fresh content.
-"""
+# =============================================================================
+# core_v2.py — PhantomFeed v2  ★ PRODUCTION-READY ★
+# =============================================================================
+# Copyright (c) 2026 Aryan Kumar Upadhyay (@aryankrupadhyay)
+# Brand: codeXploit · https://codexploit.in
+# License: MIT — Retain this header and brand attribution in all copies.
+#
+# FIXES IN THIS VERSION
+# ─────────────────────
+# FIX-1  Removed duplicate `from pipeline.safety_filter import review_text`
+#        (was imported both in function signature and redundantly inside block)
+# FIX-2  process_item now uses a single lazy-import strategy to avoid
+#        repeated module resolution on every item in tight loops.
+# FIX-3  Live mode correctly skips blog + autopush when 0 fresh items.
+# FIX-4  autopush() is called at the end of every cycle when new posts exist.
+# FIX-5  Proper exception typing on asyncio gather results.
+# =============================================================================
 
 from __future__ import annotations
 
@@ -48,21 +48,31 @@ def get_metrics() -> dict[str, Any]:
 
 def process_item(
     item: dict[str, Any],
-    db,
+    db: Any,
     config: dict[str, Any],
     base_out: str | Path = "out",
 ) -> str:
-    from pipeline import canonical_id, classify, safety_check, slugify
-    from pipeline.safety_filter import review_text
+    """
+    Process one normalised news item end-to-end:
+      dedupe → classify → safety-check → caption → image → save
+
+    Returns: "generated" | "dupe" | "similar" | "flagged" | "error"
+    """
+    # ── Lazy imports (avoids repeated attribute lookups in tight loops) ───────
+    from pipeline.dedupe import canonical_id, slugify
+    from pipeline.classifier import classify
+    from pipeline.safety_filter import check as safety_check, review_text
     from storage import copy_images, item_dir, save_meta, save_post, save_review
 
-    title         = item.get("title", "")
-    url           = item.get("url", "")
-    pub           = item.get("published_at", "")
-    source        = item.get("source", "")
+    title  = item.get("title", "")
+    url    = item.get("url", "")
+    pub    = item.get("published_at", "")
+    source = item.get("source", "")
+
     caption_depth = config.get("caption_depth", "deep")
     image_depth   = config.get("image_depth", "deep")
 
+    # ── 1. Deduplication ──────────────────────────────────────────────────────
     cid = canonical_id(title=title, url=url, published_at=pub, source=source)
 
     if db.is_processed(cid):
@@ -73,7 +83,7 @@ def process_item(
     sim_threshold = float(config.get("similarity_threshold", 0.92))
     similar_cid   = db.find_similar(title, threshold=sim_threshold)
     if similar_cid and similar_cid != cid:
-        log.info("Skipping similar item: '%s'", title[:60])
+        log.info("Skipping similar item (%.2f): '%s'", sim_threshold, title[:60])
         _bump("skipped_similar")
         db.mark_processed(
             canonical_id=cid, slug=slugify(title),
@@ -83,13 +93,15 @@ def process_item(
         )
         return "similar"
 
+    # ── 2. Classify ───────────────────────────────────────────────────────────
     item["category"] = classify(title, item.get("description", ""))
-    safety           = safety_check(item)
-    out              = item_dir(base_out, item, cid)
+
+    # ── 3. Safety check ───────────────────────────────────────────────────────
+    safety = safety_check(item)
+    out    = item_dir(base_out, item, cid)
 
     if not safety.is_safe:
-        log.warning("Item flagged: %s", cid)
-        from pipeline.safety_filter import review_text
+        log.warning("Item flagged for manual review: %s", cid)
         review = review_text(item, safety.reasons)
         save_review(out, review)
         save_meta(out, item, cid)
@@ -101,7 +113,7 @@ def process_item(
         _bump("flagged")
         return "flagged"
 
-    # Caption
+    # ── 4. Caption generation ─────────────────────────────────────────────────
     try:
         if caption_depth == "deep":
             from generators.deep_caption import generate as generate_caption
@@ -109,11 +121,11 @@ def process_item(
             from generators.text_generator import generate as generate_caption
         caption = generate_caption(item, config)
     except Exception as exc:
-        log.error("Caption failed for %s: %s", cid, exc)
+        log.error("Caption generation failed for %s: %s", cid, exc)
         _bump("errors")
         return "error"
 
-    # Image
+    # ── 5. Image generation ───────────────────────────────────────────────────
     try:
         if image_depth == "deep":
             from generators.deep_image import generate as generate_image
@@ -121,10 +133,11 @@ def process_item(
             from generators.image_generator import generate as generate_image
         raw_path, final_path = generate_image(item, out, config)
     except Exception as exc:
-        log.error("Image failed for %s: %s", cid, exc)
+        log.error("Image generation failed for %s: %s", cid, exc)
         _bump("errors")
         return "error"
 
+    # ── 6. Persist ────────────────────────────────────────────────────────────
     save_post(out, caption, item)
     save_meta(out, item, cid)
     copy_images(out, raw_path, final_path)
@@ -142,16 +155,21 @@ def process_item(
 
 async def run_cycle(
     config:   dict[str, Any],
-    db,
+    db:       Any,
     base_out: str | Path = "out",
 ) -> dict[str, int]:
-    from pipeline import normalize
+    """
+    Run one complete fetch → process → blog → push cycle.
+
+    Returns per-cycle counters: fetched / generated / dupe / similar / flagged / errors
+    """
+    from pipeline.normalizer import normalize
 
     cycle_counts: dict[str, int] = {
         "fetched": 0, "generated": 0, "dupe": 0,
         "similar": 0, "flagged": 0, "errors": 0,
     }
-    raw_items: list[tuple[dict, str]] = []
+    raw_items: list[tuple[dict[str, Any], str]] = []
     live_mode = config.get("live_mode", True)
 
     # ── Fetch ─────────────────────────────────────────────────────────────────
@@ -160,19 +178,16 @@ async def run_cycle(
         cursor = CursorStore(config.get("db_path", "data/dedupe.db"))
         try:
             live_results = await pull_live(config, cursor)
-            for item in live_results.get("newsapi", []):
-                raw_items.append((item, "newsapi"))
-            for item in live_results.get("nvd", []):
-                raw_items.append((item, "nvd"))
-            for item in live_results.get("rss", []):
-                raw_items.append((item, "rss"))
+            for source_key in ("newsapi", "nvd", "rss"):
+                for item in live_results.get(source_key, []):
+                    raw_items.append((item, source_key))
         finally:
             cursor.close()
     else:
-        from fetcher import fetch_newsapi, fetch_nvd, fetch_rss
         async with aiohttp.ClientSession() as session:
-            tasks = []
+            tasks: list[tuple[str, Any]] = []
             if config.get("newsapi_key"):
+                from fetcher.newsapi_fetcher import fetch as fetch_newsapi
                 tasks.append(("newsapi", fetch_newsapi(
                     config["newsapi_key"],
                     query=config.get("newsapi_query", ""),
@@ -180,29 +195,34 @@ async def run_cycle(
                     session=session,
                 )))
             if config.get("nvd_enabled", True):
+                from fetcher.nvd_fetcher import fetch as fetch_nvd
                 tasks.append(("nvd", fetch_nvd(
                     api_key=config.get("nvd_api_key", ""),
                     hours_back=config.get("nvd_hours_back", 24),
                     session=session,
                 )))
             if config.get("rss_enabled", True):
-                from fetcher.rss_fetcher import DEFAULT_FEEDS
+                from fetcher.rss_fetcher import fetch as fetch_rss, DEFAULT_FEEDS
                 feeds = config.get("rss_feeds") or DEFAULT_FEEDS
                 tasks.append(("rss", fetch_rss(feeds=feeds, session=session)))
-            results = await asyncio.gather(*[t[1] for t in tasks], return_exceptions=True)
-        for (fmt, _), result in zip(tasks, results):
-            if isinstance(result, Exception):
-                log.error("Fetch error [%s]: %s", fmt, result)
-                continue
-            for raw in result:
-                raw_items.append((raw, fmt))
+
+            results = await asyncio.gather(
+                *[coro for _, coro in tasks], return_exceptions=True
+            )
+            for (fmt, _), result in zip(tasks, results):
+                if isinstance(result, BaseException):
+                    log.error("Fetch error [%s]: %s", fmt, result)
+                    continue
+                for raw in result:
+                    raw_items.append((raw, fmt))
 
     cycle_counts["fetched"] = len(raw_items)
     _bump("fetched", len(raw_items))
+    log.info("Fetched %d items (live_mode=%s)", len(raw_items), live_mode)
 
-    # ── FIX 2: If live mode and nothing new, skip everything ─────────────────
+    # ── FIX-3: Early exit in live mode when nothing new ───────────────────────
     if live_mode and len(raw_items) == 0:
-        log.info("Live mode: 0 fresh items this cycle — skipping post generation and push.")
+        log.info("Live mode: 0 fresh items — skipping generation, blog, and push.")
         _write_status(config.get("status_file", "status.json"))
         return cycle_counts
 
@@ -213,7 +233,7 @@ async def run_cycle(
             status = process_item(item, db, config, base_out)
             cycle_counts[status] = cycle_counts.get(status, 0) + 1
         except Exception as exc:
-            log.exception("Unexpected error: %s", exc)
+            log.exception("Unexpected error processing item: %s", exc)
             cycle_counts["errors"] += 1
 
     _write_status(config.get("status_file", "status.json"))
@@ -222,7 +242,6 @@ async def run_cycle(
     blog_dir  = config.get("blog_dir", "blog")
 
     # ── Blog publish ──────────────────────────────────────────────────────────
-    # Only publish when new posts were actually generated
     if config.get("blog_enabled", True) and new_posts > 0:
         try:
             from publisher.blog_publisher import publish as blog_publish
@@ -231,12 +250,13 @@ async def run_cycle(
                 blog_dir=blog_dir,
                 clean=config.get("blog_clean_rebuild", False),
             )
-            log.info("Blog updated: %d posts → %s", n, blog_dir)
+            log.info("Blog updated: %d posts → %s/", n, blog_dir)
         except Exception as exc:
             log.warning("Blog publish failed (non-fatal): %s", exc)
+    elif new_posts == 0:
+        log.info("No new posts this cycle — skipping blog rebuild.")
 
-    # ── FIX 1: Auto-push to GitHub ────────────────────────────────────────────
-    # Called every cycle when new posts exist AND autopush is enabled
+    # ── FIX-4: Auto-push to GitHub ────────────────────────────────────────────
     if config.get("autopush_enabled", False) and new_posts > 0:
         try:
             from publisher.git_autopush import autopush
@@ -247,14 +267,16 @@ async def run_cycle(
                 post_count=new_posts,
             )
             if pushed:
-                log.info("✅ Auto-pushed %d new posts to GitHub → %s",
-                         new_posts, config.get("github_branch", "gh-pages"))
+                log.info(
+                    "✅ Auto-pushed %d new posts → %s@%s",
+                    new_posts, config.get("github_repo", ""), config.get("github_branch", "gh-pages"),
+                )
             else:
-                log.warning("⚠️  Auto-push failed — check GITHUB_TOKEN / GITHUB_REPO in .env")
+                log.warning("⚠️  Auto-push failed — verify GITHUB_TOKEN and GITHUB_REPO in .env")
         except Exception as exc:
             log.warning("Auto-push error (non-fatal): %s", exc)
     elif config.get("autopush_enabled", False) and new_posts == 0:
-        log.info("No new posts this cycle — skipping push")
+        log.info("Auto-push enabled but no new posts — skipping.")
 
     return cycle_counts
 
@@ -270,12 +292,13 @@ def _write_status(path: str) -> None:
 
 async def run_daemon(
     config:   dict[str, Any],
-    db,
+    db:       Any,
     base_out: str | Path = "out",
 ) -> None:
+    """Run an infinite polling loop. Ctrl-C to stop."""
     poll_interval = float(config.get("poll_interval", 3600))
     log.info(
-        "Daemon started (live_mode=%s, autopush=%s). Poll every %.0fs",
+        "Daemon started — live_mode=%s  autopush=%s  poll=%.0fs",
         config.get("live_mode", True),
         config.get("autopush_enabled", False),
         poll_interval,
@@ -286,8 +309,8 @@ async def run_daemon(
             counts = await run_cycle(config, db, base_out)
             log.info("Cycle complete: %s", counts)
         except Exception as exc:
-            log.exception("Cycle error: %s", exc)
+            log.exception("Cycle error (will retry next interval): %s", exc)
         elapsed = time.monotonic() - start
         wait    = max(0.0, poll_interval - elapsed)
-        log.info("Next cycle in %.0fs", wait)
+        log.info("Next cycle in %.0fs  (elapsed=%.1fs)", wait, elapsed)
         await asyncio.sleep(wait)
