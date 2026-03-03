@@ -25,6 +25,22 @@
 🔎 CVE Reference: CVE-2026-1234]]></description>
   </item>
   <item>
+    <title><![CDATA[Android gets patches for Qualcomm zero-day exploited in attacks]]></title>
+    <link>posts/android-gets-patches-for-qualcomm-zero-d-f484f5/index.html</link>
+    <guid isPermaLink="false">url:e84a384967d4a474</guid>
+    <pubDate>Tue, 03 Mar 2026 03:19:53 -0500</pubDate>
+    <category>vulnerability</category>
+    <description><![CDATA[# codeXploit Security Post
+# Title    : Android gets patches for Qualcomm zero-day exploited in attacks
+# Category : vulnerability
+# Source   : Bleeping Computer
+# URL      : https://www.bleepingcomputer.com/news/security/google-patches-android-zero-day-actively-exploited-in-attacks/
+# Generated: 2026-03-03T08:43:49.929806+00:00
+────────────────────────────────────────────────────────────
+
+🔴 [CRIT]]></description>
+  </item>
+  <item>
     <title><![CDATA[New Chrome Vulnerability Let Malicious Extensions Escalate Privileges via Gemini Panel]]></title>
     <link>posts/new-chrome-vulnerability-let-malicious-e-1922a2/index.html</link>
     <guid isPermaLink="false">url:28f00bb7279c3327</guid>
@@ -885,24 +901,6 @@ The vulnerability enables an attacker to fully bypass authentication in CGM CLI]
 🚨 Critical cybersecurity alert (2026): CVE-2025-15597
 
 A vulnerability has been found in Dataease SQLBot up to 1.4.0. This affects an unknown fu]]></description>
-  </item>
-  <item>
-    <title><![CDATA[CVE-2025-12462]]></title>
-    <link>posts/cve-2025-12462-510d86/index.html</link>
-    <guid isPermaLink="false">cve:CVE-2025-12462</guid>
-    <pubDate>Mon, 02 Mar 2026 13:16:03 -0000</pubDate>
-    <category>vulnerability</category>
-    <description><![CDATA[# codeXploit Security Post
-# Title    : CVE-2025-12462
-# Category : vulnerability
-# Source   : NVD
-# URL      : https://cert.pl/posts/2026/03/CVE-2025-12462/
-# Generated: 2026-03-02T23:11:03.303380+00:00
-────────────────────────────────────────────────────────────
-
-⚡ New vulnerability disclosed (2026): CVE-2025-12462
-
-A Blind SQL injection vulnerability has been identified in DobryCMS. A remote un]]></description>
   </item>
   </channel>
 </rss>

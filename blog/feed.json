@@ -2,7 +2,7 @@
   "version": "1.1",
   "title": "PhantomFeed — codeXploit Cybersecurity Blog",
   "home_page_url": "https://codexploit.in/",
-  "generated_at": "2026-03-03T08:10:53.092838+00:00",
+  "generated_at": "2026-03-03T08:43:50.500301+00:00",
   "items": [
     {
       "id": "cve:CVE-2026-1234",
@@ -14,6 +14,17 @@
       "post_url": "posts/cve-2026-1234-critical-rce-in-apache-htt-2599b4/index.html",
       "image": "posts/cve-2026-1234-critical-rce-in-apache-htt-2599b4/image.png",
       "excerpt": "# codeXploit Security Post # Title    : CVE-2026-1234 — Critical RCE in Apache HTTP Server 2.4 # Category : vulnerability # Source   : rss # URL      :  # Generated: 2026-03-03T08:10:47.975906+00:00 ────────────────────────────────────────────────────────────  🔴 [CRITICAL] CVE-20"
+    },
+    {
+      "id": "url:e84a384967d4a474",
+      "title": "Android gets patches for Qualcomm zero-day exploited in attacks",
+      "category": "vulnerability",
+      "source": "Bleeping Computer",
+      "url": "https://www.bleepingcomputer.com/news/security/google-patches-android-zero-day-actively-exploited-in-attacks/",
+      "published": "2026-03-03T03:19:53-05:00",
+      "post_url": "posts/android-gets-patches-for-qualcomm-zero-d-f484f5/index.html",
+      "image": "posts/android-gets-patches-for-qualcomm-zero-d-f484f5/image.png",
+      "excerpt": "# codeXploit Security Post # Title    : Android gets patches for Qualcomm zero-day exploited in attacks # Category : vulnerability # Source   : Bleeping Computer # URL      : https://www.bleepingcomputer.com/news/security/google-patches-android-zero-day-actively-exploited-in-atta"
     },
     {
       "id": "url:28f00bb7279c3327",
@@ -1169,6 +1180,17 @@
       "post_url": "posts/the-kimwolf-botnet-is-stalking-your-loca-ce0325/index.html",
       "image": "posts/the-kimwolf-botnet-is-stalking-your-loca-ce0325/image.png",
       "excerpt": "# codeXploit Security Post # Title    : The Kimwolf Botnet is Stalking Your Local Network # Category : vulnerability # Source   : Krebs on Security # URL      : https://krebsonsecurity.com/2026/01/the-kimwolf-botnet-is-stalking-your-local-network/ # Generated: 2026-03-02T23:11:04"
+    },
+    {
+      "id": "url:b662e21c44016b18",
+      "title": "NVD Advisory",
+      "category": "news",
+      "source": "NVD",
+      "url": "https://nvd.nist.gov/vuln/detail/",
+      "published": "2026-03-03T08:43:49.567223+00:00",
+      "post_url": "posts/nvd-advisory-ec82eb/index.html",
+      "image": "posts/nvd-advisory-ec82eb/image.png",
+      "excerpt": "# codeXploit Security Post # Title    : NVD Advisory # Category : news # Source   : NVD # URL      : https://nvd.nist.gov/vuln/detail/ # Generated: 2026-03-03T08:43:49.775265+00:00 ────────────────────────────────────────────────────────────  🟡 [MEDIUM] NVD Advisory ━━━━━━━━━━━━━"
     },
     {
       "id": "url:cd817c6c3f9660fe",
