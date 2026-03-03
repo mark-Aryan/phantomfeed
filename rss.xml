@@ -6,5 +6,43 @@
     <description>Automated cybersecurity news by Aryan Kumar Upadhyay</description>
     <language>en</language>
     
+  <item>
+    <title><![CDATA[CVE-2026-9999 — Critical RCE in Apache HTTP Server 2.4.62]]></title>
+    <link>posts/cve-2026-9999-critical-rce-in-apache-htt-1d370a-269999/index.html</link>
+    <guid isPermaLink="false">cve:CVE-2026-9999</guid>
+    <pubDate>Tue, 03 Mar 2026 11:11:22 +0000</pubDate>
+    <category>vulnerability</category>
+    <description><![CDATA[# codeXploit Security Post
+# Title    : CVE-2026-9999 — Critical RCE in Apache HTTP Server 2.4.62
+# Category : vulnerability
+# Source   : rss
+# URL      : 
+# Generated: 2026-03-03T11:11:22.699698+00:00
+────────────────────────────────────────────────────────────
+
+🔴 [CRITICAL] CVE-2026-9999 — Critical RCE in Apache HTTP Server 2.4.62
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔎 CVE Reference: CVE-202]]></description>
+  </item>
+  <item>
+    <title><![CDATA[Massive Phishing Campaign Targeting Indian Banks — 2026]]></title>
+    <link>posts/massive-phishing-campaign-targeting-indi-a3b239-90efe1/index.html</link>
+    <guid isPermaLink="false">hash:eddf12957690efe1</guid>
+    <pubDate>Tue, 03 Mar 2026 11:11:22 +0000</pubDate>
+    <category>fraud</category>
+    <description><![CDATA[# codeXploit Security Post
+# Title    : Massive Phishing Campaign Targeting Indian Banks — 2026
+# Category : fraud
+# Source   : rss
+# URL      : 
+# Generated: 2026-03-03T11:11:22.803366+00:00
+────────────────────────────────────────────────────────────
+
+🟠 [HIGH] Massive Phishing Campaign Targeting Indian Banks — 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 WHAT HAPPENED
+A large-scale phishing ]]></description>
+  </item>
   </channel>
 </rss>
