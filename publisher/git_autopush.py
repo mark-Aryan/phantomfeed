@@ -1,21 +1,40 @@
-"""
-publisher/git_autopush.py  ★ FINAL FIX ★
-==========================================
-ROOT CAUSE of auto-push not working:
-
-The original uploaded 419 files EVERY cycle one-by-one:
-  - 419 × GET /repos/{repo}/contents/{path}  (check current SHA)
-  - 419 × PUT /repos/{repo}/contents/{path}  (upload file)
-  = 838 API requests, ~84 seconds, GitHub secondary rate-limit hit → STOPS.
-
-This is why the daemon log showed:
-  [AutoPush-API] Uploading 419 files to mark-Aryan/phantomfeed@gh-pages
-  Daemon stopped.   ← GitHub killed the connection mid-upload
-
-FIX: Use Git Trees API to get ALL remote SHAs in ONE request,
-compute local SHA (git blob format), only upload files that changed.
-A typical 2-post cycle: 5 files change vs 419 → 50x fewer requests.
-"""
+# =============================================================================
+# publisher/git_autopush.py — PhantomFeed v2  ★ PRODUCTION-READY ★
+# =============================================================================
+# Copyright (c) 2026 Aryan Kumar Upadhyay (@aryankrupadhyay)
+# Brand: codeXploit · https://codexploit.in
+# License: MIT — Retain this header and brand attribution in all copies.
+#
+# ROOT CAUSE OF ORIGINAL AUTO-PUSH NOT WORKING
+# ──────────────────────────────────────────────
+# The original code uploaded all 419 files every cycle one-by-one:
+#   419 × GET /repos/{repo}/contents/{path}  (check current SHA)
+#   419 × PUT /repos/{repo}/contents/{path}  (upload file)
+#   = 838 API requests, ~84 seconds → GitHub secondary rate-limit → STOPS.
+#
+# FIX: Use Git Trees API to get ALL remote SHAs in ONE request,
+# compute local SHA (git blob format), upload only changed files.
+# A typical 2-post cycle: 5 files change vs 419 → 50× fewer requests.
+#
+# FIXES IN THIS VERSION
+# ─────────────────────
+# FIX-1  _ensure_branch_exists() now handles three cases:
+#          (a) Branch already exists → return True immediately
+#          (b) Repo has commits on main/master → branch from there
+#          (c) Completely empty repo → create orphan commit via Git Data API
+#        Previously, case (c) caused a silent failure: the function logged
+#        a warning and returned None, _git_push_api proceeded without a branch,
+#        every file upload returned 404/422, fail incremented for each file,
+#        and autopush() returned False with no actionable error message.
+#
+# FIX-2  _ensure_branch_exists() now returns bool so _git_push_api can
+#        abort early with a clear error instead of uploading blindly.
+#
+# FIX-3  _git_push_api() logs the first upload error at ERROR level (not
+#        WARNING) so it's visible in normal INFO logs and in test output.
+#
+# FIX-4  autopush() logs the specific failure reason before returning False.
+# =============================================================================
 
 from __future__ import annotations
 
@@ -60,7 +79,6 @@ def _git_push_local(
     _run(["git", "config", "--global", "user.email", "bot@codexploit.in"])
     _run(["git", "config", "--global", "user.name",  "PhantomFeed Bot"])
 
-    # Ensure .nojekyll
     nj = blog_dir / ".nojekyll"
     if not nj.exists():
         nj.write_text("", encoding="utf-8")
@@ -101,7 +119,7 @@ def _api_request(method: str, path: str, token: str, body: dict | None = None) -
             "Accept":               "application/vnd.github+json",
             "Content-Type":         "application/json",
             "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent":           "PhantomFeed/2.0",
+            "User-Agent":           "PhantomFeed/2.0 (+https://codexploit.in)",
         },
     )
     try:
@@ -115,7 +133,7 @@ def _api_request(method: str, path: str, token: str, body: dict | None = None) -
 def _git_blob_sha(content: bytes) -> str:
     """
     Compute the exact SHA GitHub uses for blob objects.
-    sha1("blob {size}\0{content}") — lets us compare without extra API calls.
+    sha1("blob {size}\\0{content}") — lets us compare without extra API calls.
     """
     header = f"blob {len(content)}\0".encode()
     return hashlib.sha1(header + content).hexdigest()
@@ -123,8 +141,9 @@ def _git_blob_sha(content: bytes) -> str:
 
 def _get_all_remote_shas(token: str, repo: str, branch: str) -> dict[str, str]:
     """
-    KEY FIX: Get all file SHAs on the branch in ONE API request.
+    Get all file SHAs on the branch in ONE API request.
     Returns {path: blob_sha} dict for every file on the branch.
+    Falls back to {} (upload everything) if the branch is brand-new or empty.
     """
     try:
         ref        = _api_request("GET", f"/repos/{repo}/git/ref/heads/{branch}", token)
@@ -142,12 +161,24 @@ def _get_all_remote_shas(token: str, repo: str, branch: str) -> dict[str, str]:
         return {}
 
 
-def _ensure_branch_exists(token: str, repo: str, branch: str) -> None:
+def _ensure_branch_exists(token: str, repo: str, branch: str) -> bool:
+    """
+    Guarantee the target branch exists on GitHub. Returns True on success.
+
+    FIX-1: Handles three cases:
+      (a) Branch already exists        → return True immediately
+      (b) Repo has commits on main/master → branch from there
+      (c) Completely empty repo         → create orphan commit via Git Data API
+    """
+    # ── Case (a): Branch already exists ──────────────────────────────────────
     try:
         _api_request("GET", f"/repos/{repo}/branches/{branch}", token)
-        return
+        log.debug("[AutoPush-API] Branch '%s' already exists", branch)
+        return True
     except Exception:
-        pass
+        pass  # branch not found — need to create it
+
+    # ── Case (b): Repo has commits → branch from main/master ─────────────────
     for default in ("main", "master"):
         try:
             ref = _api_request("GET", f"/repos/{repo}/git/ref/heads/{default}", token)
@@ -155,16 +186,74 @@ def _ensure_branch_exists(token: str, repo: str, branch: str) -> None:
                 "ref": f"refs/heads/{branch}",
                 "sha": ref["object"]["sha"],
             })
-            log.info("[AutoPush-API] Created branch: %s", branch)
-            return
+            log.info("[AutoPush-API] Created branch '%s' from '%s'", branch, default)
+            return True
         except Exception:
-            continue
-    log.warning("[AutoPush-API] Could not create branch %s", branch)
+            continue  # try next default branch name
+
+    # ── Case (c): Completely empty repo → orphan commit via Git Data API ──────
+    log.info(
+        "[AutoPush-API] Repo appears empty. Creating orphan branch '%s' via Git Data API…",
+        branch,
+    )
+    try:
+        # Step 1: Create a blob (empty .nojekyll content)
+        blob = _api_request("POST", f"/repos/{repo}/git/blobs", token, {
+            "content":  "",
+            "encoding": "utf-8",
+        })
+
+        # Step 2: Create a tree containing .nojekyll
+        tree = _api_request("POST", f"/repos/{repo}/git/trees", token, {
+            "tree": [{
+                "path":  ".nojekyll",
+                "mode":  "100644",
+                "type":  "blob",
+                "sha":   blob["sha"],
+            }]
+        })
+
+        # Step 3: Create a commit with NO parents (true orphan)
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        commit = _api_request("POST", f"/repos/{repo}/git/commits", token, {
+            "message": f"🤖 PhantomFeed — initial commit ({ts})",
+            "tree":    tree["sha"],
+            "parents": [],  # orphan — no parent commits
+            "author": {
+                "name":  "PhantomFeed Bot",
+                "email": "bot@codexploit.in",
+                "date":  datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+        })
+
+        # Step 4: Create the branch ref pointing to the new commit
+        _api_request("POST", f"/repos/{repo}/git/refs", token, {
+            "ref": f"refs/heads/{branch}",
+            "sha": commit["sha"],
+        })
+        log.info(
+            "[AutoPush-API] ✅ Created orphan branch '%s' (commit: %s)",
+            branch, commit["sha"][:7],
+        )
+        return True
+
+    except Exception as exc:
+        log.error(
+            "[AutoPush-API] ❌ Could not create branch '%s': %s\n"
+            "  → Make sure your token has 'repo' scope (classic) or "
+            "'Contents: Read and write' permission (fine-grained).",
+            branch, exc,
+        )
+        return False
 
 
 def _upsert_file(
-    token: str, repo: str, path: str,
-    content: bytes, message: str, branch: str,
+    token:      str,
+    repo:       str,
+    path:       str,
+    content:    bytes,
+    message:    str,
+    branch:     str,
     remote_sha: str | None = None,
 ) -> None:
     body: dict[str, Any] = {
@@ -189,11 +278,18 @@ def _git_push_api(
         log.error("[AutoPush-API] blog_dir does not exist: %s", blog_dir)
         return False
 
-    _ensure_branch_exists(token, repo, branch)
+    # FIX-2: Check return value — abort early if branch setup failed
+    if not _ensure_branch_exists(token, repo, branch):
+        log.error(
+            "[AutoPush-API] Branch setup failed for '%s' — aborting push. "
+            "Check your GitHub token permissions (needs 'repo' scope).",
+            branch,
+        )
+        return False
 
     # ONE request to get all existing file SHAs
     remote_shas = _get_all_remote_shas(token, repo, branch)
-    log.info("[AutoPush-API] Remote branch has %d files", len(remote_shas))
+    log.info("[AutoPush-API] Remote branch '%s' has %d files", branch, len(remote_shas))
 
     # Find only new/changed files
     all_local  = [f for f in blog_dir.rglob("*") if f.is_file()]
@@ -209,12 +305,15 @@ def _git_push_api(
             continue   # unchanged — skip
         to_upload.append((rel_path, content, remote_sha))
 
-    # Always ensure .nojekyll
-    if ".nojekyll" not in remote_shas:
+    # Always ensure .nojekyll is present
+    if ".nojekyll" not in remote_shas and not any(r == ".nojekyll" for r, _, _ in to_upload):
         to_upload.append((".nojekyll", b"", None))
 
     if not to_upload:
-        log.info("[AutoPush-API] 0 files changed out of %d — skipping push", len(all_local))
+        log.info(
+            "[AutoPush-API] 0 files changed out of %d — nothing to push.",
+            len(all_local),
+        )
         return True
 
     log.info(
@@ -223,19 +322,34 @@ def _git_push_api(
     )
 
     success = fail = 0
+    first_error: str = ""
+
     for rel_path, content, remote_sha in to_upload:
         try:
             _upsert_file(token, repo, rel_path, content, message, branch, remote_sha)
             success += 1
-            time.sleep(0.05)
+            time.sleep(0.05)  # stay well within secondary rate limits
         except Exception as exc:
-            log.warning("[AutoPush-API] Failed %s: %s", rel_path, exc)
+            err_msg = str(exc)
+            if fail == 0:
+                # FIX-3: Log first error at ERROR level so it's visible in tests
+                log.error("[AutoPush-API] First upload failure — %s: %s", rel_path, err_msg)
+                first_error = err_msg
+            else:
+                log.warning("[AutoPush-API] Failed %s: %s", rel_path, err_msg)
             fail += 1
 
-    log.info(
-        "[AutoPush-API] ✅ %d uploaded, %d failed → %s@%s",
-        success, fail, repo, branch,
-    )
+    if fail > 0:
+        log.error(
+            "[AutoPush-API] ❌ %d/%d files failed. First error: %s",
+            fail, len(to_upload), first_error,
+        )
+    else:
+        log.info(
+            "[AutoPush-API] ✅ %d files uploaded → %s@%s",
+            success, repo, branch,
+        )
+
     return fail == 0
 
 
@@ -247,6 +361,16 @@ def autopush(
     out_dir:    str | Path = "out",
     post_count: int = 0,
 ) -> bool:
+    """
+    Push blog/ to GitHub Pages. Returns True on success, False on failure.
+
+    Config keys used:
+      autopush_enabled  bool   — must be True to do anything
+      autopush_mode     str    — "api" (GitHub REST) | "git" (local git)
+      github_token      str    — Personal Access Token with repo scope
+      github_repo       str    — "owner/repo" e.g. "mark-Aryan/phantomfeed"
+      github_branch     str    — branch to push to (default: gh-pages)
+    """
     if not config.get("autopush_enabled", False):
         return True
 
@@ -266,18 +390,26 @@ def autopush(
     try:
         if mode == "api":
             if not token:
-                log.error("[AutoPush] GITHUB_TOKEN not set — add it to your .env file")
+                log.error(
+                    "[AutoPush] GITHUB_TOKEN is not set. "
+                    "Add it to your .env file or set the GITHUB_TOKEN environment variable."
+                )
                 return False
             if not repo:
-                log.error("[AutoPush] GITHUB_REPO not set — add it to your .env file")
+                log.error(
+                    "[AutoPush] GITHUB_REPO is not set. "
+                    "Add it to your .env file: GITHUB_REPO=owner/repo"
+                )
                 return False
             return _git_push_api(blog_dir, token, repo, branch, msg)
         else:
             if token and repo:
                 _inject_token_into_remote(token, repo)
             return _git_push_local(blog_dir, out_dir, msg, branch)
+
     except Exception as exc:
-        log.error("[AutoPush] Push failed (non-fatal): %s", exc)
+        # FIX-4: Log the specific failure reason
+        log.error("[AutoPush] ❌ Push failed: %s", exc)
         return False
 
 
