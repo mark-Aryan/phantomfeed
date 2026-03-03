@@ -1,0 +1,30 @@
+# Environment & secrets
+.env
+config.json
+
+# Generated outputs (optionally track structure only)
+out/
+data/
+logs/
+status.json
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.tox/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+*.log

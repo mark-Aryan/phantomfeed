@@ -1,0 +1,95 @@
+name: PhantomFeed — Auto-deploy Blog
+
+on:
+  # Trigger on push to main (when you push new out/ content)
+  push:
+    branches: [ main ]
+    paths:
+      - 'out/**'
+      - 'blog/**'
+      - 'publisher/**'
+      - 'cli_v2.py'
+      - 'core_v2.py'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      clean_rebuild:
+        description: 'Clean rebuild blog (wipe old pages)?'
+        required: false
+        default: false
+        type: boolean
+
+  # Scheduled: rebuild blog every 6 hours to catch any new out/ content
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to push to gh-pages branch
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for accurate timestamps
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install Pillow python-dotenv
+
+      - name: Build static blog
+        env:
+          CLEAN_REBUILD: ${{ github.event.inputs.clean_rebuild || 'false' }}
+        run: |
+          python - <<'EOF'
+          import sys, json
+          sys.path.insert(0, '.')
+          
+          # Mock packages not needed for blog build
+          import types
+          for m in ['aiohttp', 'feedparser']:
+              mod = types.ModuleType(m)
+              if m == 'aiohttp':
+                  mod.ClientSession = object
+                  mod.ClientError = Exception
+              sys.modules[m] = mod
+          dotenv_mod = types.ModuleType('dotenv')
+          dotenv_mod.load_dotenv = lambda: None
+          sys.modules['dotenv'] = dotenv_mod
+          
+          import os
+          clean = os.getenv('CLEAN_REBUILD', 'false').lower() == 'true'
+          
+          from publisher.blog_publisher import publish
+          n = publish(out_dir='out', blog_dir='blog', clean=clean)
+          print(f'Blog built: {n} posts')
+          EOF
+
+      - name: Add .nojekyll (prevent GitHub Pages from processing as Jekyll)
+        run: touch blog/.nojekyll
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./blog
+          publish_branch: gh-pages
+          commit_message: "🤖 Auto-deploy blog — ${{ github.sha }}"
+          user_name: 'PhantomFeed Bot'
+          user_email: 'bot@codexploit.in'
+
+      - name: Post-deploy summary
+        run: |
+          echo "✅ Blog deployed to GitHub Pages"
+          echo "🌐 URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          POST_COUNT=$(find blog/posts -name "index.html" | wc -l || echo 0)
+          echo "📊 Posts: $POST_COUNT"

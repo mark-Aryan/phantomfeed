@@ -1,0 +1,124 @@
+# prompts/claude-prompt.txt
+# =====================================================================
+# AUDITABLE PROMPT TEMPLATES — codeXploit Cyber News Poster
+# These prompts are used when caption_backend = "ai" in config.json.
+# Edit here to change tone, structure, or brand emphasis.
+# =====================================================================
+# Version: 1.0 | Updated: 2026 | Author: codeXploit (Aryan Kumar Upadhyay)
+# =====================================================================
+
+
+# ── MAIN CAPTION GENERATION PROMPT ────────────────────────────────────────────
+# Used by generators/text_generator.py :: _build_prompt()
+# Injected with item title, description, category, and URL at runtime.
+
+CAPTION_SYSTEM_PROMPT = """
+You are a cybersecurity social media expert writing a LinkedIn post for
+codeXploit — the personal brand of Aryan Kumar Upadhyay (@aryankrupadhyay),
+Cybersecurity Analyst & Ethical Hacker from India (codexploit.in).
+
+Brand guidelines:
+  - Front-load: codeXploit, cybersecurity, ethical hacking, penetration testing
+  - Author: Aryan Kumar Upadhyay | codeXploit | codexploit.in
+  - Tone: Professional, authoritative, helpful — not alarmist
+  - NEVER include PoC code, exploit steps, or shell commands
+  - NEVER speculate beyond what is in the source data
+
+Top hashtags to use (select 4-6):
+  #codeXploit #cybersecurity #infosec #ethicalhacking #penetrationtesting
+  #CVE #bugbounty #Python #vulnerabilityassessment #networksecurity
+  #patchnow #OWASP #redteam #AryanKumarUpadhyay
+
+Skills context: Penetration Testing, Ethical Hacking, Vulnerability Assessment,
+Network Security, Incident Response, Python, Django, Nmap, Metasploit,
+Wireshark, Burp Suite, OWASP Top 10, Red Teaming, Bug Bounty
+"""
+
+CAPTION_USER_PROMPT_TEMPLATE = """
+Write a LinkedIn post for the following cybersecurity news item.
+Strictly follow this SEO structure (2026-optimised):
+
+  1. Hook line (≤1 sentence) — front-load primary keyword + "2026"
+  2. 1–2 sentence summary of what happened
+  3. 1 sentence remediation or concrete action recommendation
+  4. 4–6 hashtags (ALWAYS include #codeXploit; mix category + brand tags)
+  5. Source URL reference
+
+News item:
+  Title      : {title}
+  Summary    : {description}
+  Category   : {category}
+  Source URL : {url}
+
+Example output for reference (DO NOT copy, generate fresh):
+  🚨 CVE-2026-1234 — Critical RCE in Apache HTTP Server found (2026).
+
+  A critical remote code execution vulnerability (CVSS 9.8) in Apache 2.4.x
+  allows unauthenticated attackers to execute code via malformed HTTP/2 headers.
+
+  ✅ Patch to Apache 2.4.63+ immediately and restrict HTTP/2 access where possible.
+
+  #codeXploit #CVE #infosec #patchnow #vulnerabilityassessment #cybersecurity
+
+  🔗 https://nvd.nist.gov/vuln/detail/CVE-2026-1234
+
+  — Aryan Kumar Upadhyay (@aryankrupadhyay) | codeXploit · codexploit.in
+
+Reply with ONLY the formatted post text. No preamble. No quotes.
+Length: 80–200 words.
+"""
+
+
+# ── IMAGE GENERATION PROMPT ────────────────────────────────────────────────────
+# Used by generators/image_generator.py when backend = "remote"
+# (Stable Diffusion / HuggingFace text-to-image)
+
+IMAGE_PROMPT_TEMPLATE = """
+Cybersecurity concept art, professional LinkedIn post image,
+dark navy-blue and cyan color scheme, digital network grid lines,
+binary code background, glowing circuit traces, representing:
+"{title_snippet}",
+codeXploit brand aesthetic, high quality, 8k, no text overlay, no faces,
+abstract technology visualization, clean and professional
+"""
+
+IMAGE_NEGATIVE_PROMPT = """
+text, watermark, logo, blurry, low quality, cartoon, anime,
+explicit content, violence, blood, weapons, realistic faces,
+screenshot, diagram
+"""
+
+
+# ── SAFETY REVIEW PROMPT ───────────────────────────────────────────────────────
+# Displayed in review.txt when an item is flagged for manual review.
+# Not sent to any AI — this is the human-readable explanation template.
+
+REVIEW_NOTICE_TEMPLATE = """
+=== MANUAL REVIEW REQUIRED ===
+
+This item was automatically flagged because it may contain:
+  - Proof-of-concept (PoC) exploit code
+  - Step-by-step attack instructions
+  - Shell commands or payloads
+  - Other actionable attack details
+
+codeXploit's SAFETY policy (see SAFETY.md) prohibits auto-publishing
+content that could enable exploitation.
+
+Item details:
+  Title    : {title}
+  Source   : {source}
+  URL      : {url}
+  Published: {published_at}
+
+Flagged patterns:
+{reasons}
+
+Reviewer actions:
+  1. Read the original article at the source URL above.
+  2. If safe to publish (e.g., vendor advisory only), run:
+       python cli.py reprocess "{canonical_id}"
+  3. If it contains exploit details: do not publish. Archive this folder.
+
+Policy reference: SAFETY.md
+"""

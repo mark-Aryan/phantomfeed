@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  cyber-news-poster:
+    build: .
+    container_name: cyber-news-poster
+    restart: unless-stopped
+
+    # Mount persistent data outside the container
+    volumes:
+      - ./out:/app/out
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.json:/app/config.json:ro
+      # Optional: mount your index.html for live brand extraction
+      # - ./index.html:/app/index.html:ro
+
+    # All secrets via environment — never bake into image
+    environment:
+      - NEWSAPI_KEY=${NEWSAPI_KEY:-}
+      - NVD_API_KEY=${NVD_API_KEY:-}
+      - HF_API_TOKEN=${HF_API_TOKEN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CAPTION_BACKEND=${CAPTION_BACKEND:-template}
+      - IMAGE_BACKEND=${IMAGE_BACKEND:-placeholder}
+      - TZ=UTC
+
+    ports:
+      - "8080:8080"   # Health-check endpoint
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    # Resource limits (CPU-only server)
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"

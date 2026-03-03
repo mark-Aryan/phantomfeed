@@ -1,0 +1,32 @@
+# cyber-news-poster requirements
+# Python 3.10+
+
+# Async HTTP client (core)
+aiohttp>=3.9.0
+
+# Image generation
+Pillow>=10.0.0
+
+# RSS feed parsing
+feedparser>=6.0.10
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# HTTP fallback (used internally where urllib is too limited)
+requests>=2.31.0
+
+# Development / testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+
+# Linting (pre-commit hooks)
+black>=24.0.0
+isort>=5.13.0
+flake8>=7.0.0
+
+# Optional: for local diffusers GPU pipeline (not required)
+# torch>=2.0.0
+# diffusers>=0.25.0
+# transformers>=4.35.0
+# accelerate>=0.26.0

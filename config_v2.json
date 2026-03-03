@@ -1,0 +1,72 @@
+{
+  "_comment": "PhantomFeed v2 config — all original keys preserved, new keys added at bottom.",
+
+  "poll_interval": 3600,
+  "db_path": "data/dedupe.db",
+  "out_dir": "out",
+  "status_file": "status.json",
+  "log_level": "INFO",
+  "log_file": "logs/app.log",
+  "health_port": 8080,
+
+  "newsapi_key": "",
+  "_newsapi_note": "Get free key at https://newsapi.org/register. Or set NEWSAPI_KEY env var.",
+  "newsapi_query": "cybersecurity OR CVE OR vulnerability OR ransomware OR \"data breach\" OR \"ethical hacking\"",
+  "newsapi_page_size": 20,
+
+  "nvd_enabled": true,
+  "nvd_api_key": "",
+  "_nvd_note": "Optional. Register at https://nvd.nist.gov/developers/request-an-api-key",
+  "nvd_hours_back": 24,
+  "nvd_min_cvss": 7.0,
+
+  "rss_enabled": true,
+  "rss_feeds": [
+    {"url": "https://krebsonsecurity.com/feed/", "name": "Krebs on Security"},
+    {"url": "https://feeds.feedburner.com/TheHackersNews", "name": "The Hacker News"},
+    {"url": "https://www.bleepingcomputer.com/feed/", "name": "Bleeping Computer"},
+    {"url": "https://www.cisa.gov/cybersecurity-advisories/all.xml", "name": "CISA"},
+    {"url": "https://feeds.feedburner.com/securityweek", "name": "SecurityWeek"},
+    {"url": "https://www.darkreading.com/rss.xml", "name": "Dark Reading"}
+  ],
+
+  "caption_backend": "template",
+  "_caption_note": "Options: 'template' (offline) | 'ai' (requires claude_api_key or hf_api_token)",
+  "claude_api_key": "",
+  "_claude_note": "Set ANTHROPIC_API_KEY env var. Uses claude-haiku for cost efficiency.",
+  "claude_model": "claude-haiku-4-5-20251001",
+  "hf_api_token": "",
+  "_hf_note": "Free HuggingFace token: https://huggingface.co/settings/tokens",
+  "hf_model_id": "mistralai/Mistral-7B-Instruct-v0.2",
+  "ai_backend": "claude",
+
+  "image_backend": "placeholder",
+  "_image_note": "Options: 'placeholder' (PIL only) | 'remote' (HuggingFace Stable Diffusion API)",
+  "hf_image_model": "stabilityai/stable-diffusion-2-1-base",
+  "image_size": "linkedin",
+  "_image_size_note": "Options: 'linkedin' (1200x627) | 'square' (1080x1080)",
+
+  "similarity_threshold": 0.92,
+
+  "brand_html_path": "index.html",
+
+  "_upgrade1_section": "=== UPGRADE #1: Deep captions & images ===",
+  "caption_depth": "deep",
+  "_caption_depth_note": "Options: 'deep' (detailed what/why/fix/prevent) | 'standard' (original short caption)",
+  "image_depth": "deep",
+  "_image_depth_note": "Options: 'deep' (two-panel fix+prevent overlay) | 'standard' (original single-panel)",
+
+  "_upgrade2_section": "=== UPGRADE #2: Live news puller ===",
+  "live_mode": true,
+  "_live_mode_note": "true = pull only items newer than last run cursor (no old news). false = original behaviour.",
+  "live_lookback_minutes": 90,
+  "_lookback_note": "On first live run, look back this many minutes. Subsequent runs use cursor.",
+
+  "_upgrade3_section": "=== UPGRADE #3: Static blog publisher ===",
+  "blog_enabled": true,
+  "_blog_enabled_note": "Rebuilds static blog after every cycle. Set false to disable.",
+  "blog_dir": "blog",
+  "_blog_dir_note": "Output folder for static site. Deploy this folder to any static host.",
+  "blog_clean_rebuild": false,
+  "_blog_clean_note": "If true, deletes blog_dir before each rebuild (slower but always fresh)."
+}
