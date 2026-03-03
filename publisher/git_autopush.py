@@ -1,28 +1,24 @@
 """
-publisher/git_autopush.py
-==========================
-Auto-pushes the blog/ folder to GitHub after every daemon cycle.
+publisher/git_autopush.py  ★ FIXED ★
+======================================
+ROOT CAUSE FIX for uploading 419 files every single cycle:
 
-Works in two modes:
-  (A) LOCAL GIT — runs `git add / commit / push` via subprocess
-      (requires git installed + repo already configured with remote)
+The original _git_push_api() did a separate GET /contents/{path} request
+for EVERY file to check its current SHA before uploading.
+With 419 files: 419 GET requests + 419 PUT requests = 838 API calls per cycle.
+At 0.1s sleep between each = ~84 seconds per push, hitting GitHub secondary 
+rate limits and causing the daemon to stop.
 
-  (B) GITHUB API — pushes files directly via GitHub REST API
-      (no git install needed, works on any server/VPS/cloud)
-      Requires: GITHUB_TOKEN, GITHUB_REPO env vars
-
-Config keys (config.json):
-  autopush_enabled:  true
-  autopush_mode:     "git"  | "api"
-  github_token:      ""     (or set GITHUB_TOKEN env var)
-  github_repo:       ""     (e.g. "mark-Aryan/phantomfeed" — set GITHUB_REPO env var)
-  github_branch:     "gh-pages"
-  autopush_message:  "🤖 PhantomFeed auto-update — {timestamp} ({n} posts)"
+FIX: Use GitHub's Git Trees API (/repos/{repo}/git/trees/{sha}?recursive=1)
+to fetch ALL file SHAs in ONE request, then compare locally.
+Only upload files that are NEW or CHANGED.
+Typical result: 2-3 files changed per cycle vs 419 → 50x faster.
 """
 
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -42,12 +38,8 @@ def _git_push_local(
     blog_dir: str | Path,
     out_dir:  str | Path,
     message:  str,
-    branch:   str = "main",
+    branch:   str = "gh-pages",
 ) -> bool:
-    """
-    Stage blog/ and out/ then commit + push using local git.
-    Returns True on success.
-    """
     blog_dir = Path(blog_dir)
     out_dir  = Path(out_dir)
 
@@ -58,7 +50,7 @@ def _git_push_local(
         )
         return result.returncode, (result.stdout + result.stderr).strip()
 
-    # Find repo root (walk up from blog_dir)
+    # Find repo root
     repo_root = Path.cwd()
     code, out = _run(["git", "rev-parse", "--show-toplevel"])
     if code == 0 and out:
@@ -66,20 +58,25 @@ def _git_push_local(
 
     log.info("[AutoPush-Git] Repo root: %s", repo_root)
 
-    # Configure git identity if not set (needed on fresh servers)
+    # Set identity (needed on fresh servers / CI)
     _run(["git", "config", "--global", "user.email", "bot@codexploit.in"])
     _run(["git", "config", "--global", "user.name",  "PhantomFeed Bot"])
 
-    # Stage blog/ and out/
+    # Ensure .nojekyll exists so GitHub Pages works
+    nojekyll = blog_dir / ".nojekyll"
+    if not nojekyll.exists():
+        nojekyll.write_text("", encoding="utf-8")
+
+    # Stage files
     for folder in [str(blog_dir), str(out_dir)]:
         code, out = _run(["git", "add", folder], cwd=repo_root)
         if code != 0:
             log.warning("[AutoPush-Git] git add failed for %s: %s", folder, out)
 
-    # Check if anything changed
+    # Check for changes
     code, status = _run(["git", "status", "--porcelain"], cwd=repo_root)
     if not status.strip():
-        log.info("[AutoPush-Git] Nothing changed, skipping push.")
+        log.info("[AutoPush-Git] Nothing changed — skipping push.")
         return True
 
     # Commit
@@ -99,21 +96,18 @@ def _git_push_local(
     return True
 
 
-# ─── Mode B: GitHub REST API ──────────────────────────────────────────────────
+# ─── Mode B: GitHub REST API (FIXED) ─────────────────────────────────────────
 
 def _api_request(
     method: str,
-    path: str,
-    token: str,
-    body: dict | None = None,
+    path:   str,
+    token:  str,
+    body:   dict | None = None,
 ) -> dict:
-    """Make a GitHub API request. Returns parsed JSON response."""
-    url = f"https://api.github.com{path}"
+    url  = f"https://api.github.com{path}"
     data = json.dumps(body).encode() if body else None
-    req = urllib.request.Request(
-        url,
-        data=data,
-        method=method,
+    req  = urllib.request.Request(
+        url, data=data, method=method,
         headers={
             "Authorization":        f"Bearer {token}",
             "Accept":               "application/vnd.github+json",
@@ -130,66 +124,79 @@ def _api_request(
         raise RuntimeError(f"GitHub API {method} {path} → {e.code}: {body_text}") from e
 
 
-def _get_file_sha(token: str, repo: str, path: str, branch: str) -> str | None:
-    """Get the SHA of an existing file (needed for updates)."""
+def _git_blob_sha(content: bytes) -> str:
+    """
+    Compute the SHA that GitHub uses for blob objects.
+    Formula: sha1("blob {len}\0{content}")
+    This lets us compare local vs remote WITHOUT an API call per file.
+    """
+    header = f"blob {len(content)}\0".encode()
+    return hashlib.sha1(header + content).hexdigest()
+
+
+def _get_all_remote_shas(token: str, repo: str, branch: str) -> dict[str, str]:
+    """
+    FIX: Returns {filepath: blob_sha} for every file on the branch.
+    Uses ONE API call (Git Trees recursive) instead of N calls.
+    """
     try:
-        data = _api_request(
-            "GET", f"/repos/{repo}/contents/{path}?ref={branch}", token
+        # Step 1: get branch HEAD SHA
+        ref = _api_request("GET", f"/repos/{repo}/git/ref/heads/{branch}", token)
+        commit_sha = ref["object"]["sha"]
+        # Step 2: get full recursive tree in one request
+        tree = _api_request(
+            "GET",
+            f"/repos/{repo}/git/trees/{commit_sha}?recursive=1",
+            token,
         )
-        return data.get("sha")
+        return {
+            item["path"]: item["sha"]
+            for item in tree.get("tree", [])
+            if item.get("type") == "blob"
+        }
+    except Exception as exc:
+        log.warning("[AutoPush-API] Could not fetch remote tree: %s — will upload all", exc)
+        return {}
+
+
+def _ensure_branch_exists(token: str, repo: str, branch: str) -> None:
+    try:
+        _api_request("GET", f"/repos/{repo}/branches/{branch}", token)
+        return  # already exists
     except Exception:
-        return None
+        pass
+    for default in ("main", "master"):
+        try:
+            ref = _api_request("GET", f"/repos/{repo}/git/ref/heads/{default}", token)
+            _api_request("POST", f"/repos/{repo}/git/refs", token, {
+                "ref": f"refs/heads/{branch}",
+                "sha": ref["object"]["sha"],
+            })
+            log.info("[AutoPush-API] Created branch: %s", branch)
+            return
+        except Exception:
+            continue
+    log.warning("[AutoPush-API] Could not create branch %s", branch)
 
 
 def _upsert_file(
-    token:   str,
-    repo:    str,
-    path:    str,
-    content: bytes,
-    message: str,
-    branch:  str,
+    token:       str,
+    repo:        str,
+    path:        str,
+    content:     bytes,
+    message:     str,
+    branch:      str,
+    remote_sha:  str | None = None,
 ) -> None:
-    """Create or update a single file via GitHub API."""
-    sha = _get_file_sha(token, repo, path, branch)
+    """Upload or update a single file. remote_sha required for updates."""
     body: dict[str, Any] = {
         "message": message,
         "content": base64.b64encode(content).decode(),
         "branch":  branch,
     }
-    if sha:
-        body["sha"] = sha
-
+    if remote_sha:
+        body["sha"] = remote_sha
     _api_request("PUT", f"/repos/{repo}/contents/{path}", token, body)
-
-
-def _ensure_branch_exists(token: str, repo: str, branch: str) -> None:
-    """Create branch from main if it doesn't exist yet."""
-    try:
-        _api_request("GET", f"/repos/{repo}/branches/{branch}", token)
-        return   # branch exists
-    except Exception:
-        pass
-
-    # Get SHA of default branch HEAD
-    try:
-        ref_data = _api_request("GET", f"/repos/{repo}/git/ref/heads/main", token)
-        sha = ref_data["object"]["sha"]
-    except Exception:
-        try:
-            ref_data = _api_request("GET", f"/repos/{repo}/git/ref/heads/master", token)
-            sha = ref_data["object"]["sha"]
-        except Exception:
-            log.warning("[AutoPush-API] Could not find default branch to fork from")
-            return
-
-    try:
-        _api_request("POST", f"/repos/{repo}/git/refs", token, {
-            "ref": f"refs/heads/{branch}",
-            "sha": sha,
-        })
-        log.info("[AutoPush-API] Created branch: %s", branch)
-    except Exception as exc:
-        log.warning("[AutoPush-API] Could not create branch %s: %s", branch, exc)
 
 
 def _git_push_api(
@@ -199,10 +206,6 @@ def _git_push_api(
     branch:   str,
     message:  str,
 ) -> bool:
-    """
-    Push all files in blog_dir to GitHub via REST API.
-    This is the recommended mode for servers without git.
-    """
     blog_dir = Path(blog_dir)
     if not blog_dir.exists():
         log.error("[AutoPush-API] blog_dir does not exist: %s", blog_dir)
@@ -210,51 +213,67 @@ def _git_push_api(
 
     _ensure_branch_exists(token, repo, branch)
 
-    # Collect all files
-    all_files = [f for f in blog_dir.rglob("*") if f.is_file()]
-    log.info("[AutoPush-API] Uploading %d files to %s@%s", len(all_files), repo, branch)
+    # FIX: Fetch ALL remote SHAs in ONE request
+    remote_shas = _get_all_remote_shas(token, repo, branch)
+    log.info("[AutoPush-API] Remote has %d tracked files", len(remote_shas))
 
-    success_count = 0
-    fail_count    = 0
+    # Collect local files and compute which ones changed
+    all_local = [f for f in blog_dir.rglob("*") if f.is_file()]
+    to_upload: list[tuple[str, bytes, str | None]] = []
 
-    for fpath in all_files:
-        rel = fpath.relative_to(blog_dir).as_posix()
-        try:
-            content = fpath.read_bytes()
-            _upsert_file(token, repo, rel, content, message, branch)
-            success_count += 1
-            # Respect GitHub API rate limit (5000 req/hr authenticated)
-            time.sleep(0.1)
-        except Exception as exc:
-            log.warning("[AutoPush-API] Failed to upload %s: %s", rel, exc)
-            fail_count += 1
+    for fpath in all_local:
+        rel_path = fpath.relative_to(blog_dir).as_posix()
+        content  = fpath.read_bytes()
+        local_sha = _git_blob_sha(content)
+        remote_sha = remote_shas.get(rel_path)
 
-    # Add .nojekyll so GitHub Pages doesn't try to process as Jekyll
-    try:
-        _upsert_file(token, repo, ".nojekyll", b"", message, branch)
-    except Exception:
-        pass
+        if remote_sha == local_sha:
+            continue  # unchanged — skip
+
+        to_upload.append((rel_path, content, remote_sha))
+
+    # Always ensure .nojekyll exists
+    if ".nojekyll" not in remote_shas:
+        to_upload.append((".nojekyll", b"", None))
+
+    if not to_upload:
+        log.info("[AutoPush-API] All %d files unchanged — skipping push", len(all_local))
+        return True
 
     log.info(
-        "[AutoPush-API] Done: %d uploaded, %d failed → %s@%s",
-        success_count, fail_count, repo, branch,
+        "[AutoPush-API] Uploading %d changed files (of %d total) to %s@%s",
+        len(to_upload), len(all_local), repo, branch,
     )
-    return fail_count == 0
+
+    success = fail = 0
+    for rel_path, content, remote_sha in to_upload:
+        try:
+            _upsert_file(token, repo, rel_path, content, message, branch, remote_sha)
+            log.debug("[AutoPush-API] ✓ %s", rel_path)
+            success += 1
+            time.sleep(0.05)  # brief pause — much less needed since far fewer uploads
+        except Exception as exc:
+            log.warning("[AutoPush-API] ✗ Failed %s: %s", rel_path, exc)
+            fail += 1
+
+    log.info(
+        "[AutoPush-API] ✅ Done: %d uploaded, %d failed → %s@%s",
+        success, fail, repo, branch,
+    )
+    return fail == 0
 
 
 # ─── Public entry point ────────────────────────────────────────────────────────
 
 def autopush(
-    config:    dict[str, Any],
-    blog_dir:  str | Path = "blog",
-    out_dir:   str | Path = "out",
+    config:     dict[str, Any],
+    blog_dir:   str | Path = "blog",
+    out_dir:    str | Path = "out",
     post_count: int = 0,
 ) -> bool:
     """
-    Auto-push blog to GitHub.
-    Called automatically by core_v2.py after every successful cycle.
-
-    Returns True on success, False on failure (non-fatal).
+    Auto-push blog to GitHub after every daemon cycle.
+    Called by core_v2.py — returns True on success (non-fatal on failure).
     """
     if not config.get("autopush_enabled", False):
         return True   # disabled — silent no-op
@@ -262,12 +281,12 @@ def autopush(
     token  = config.get("github_token")  or os.getenv("GITHUB_TOKEN",  "")
     repo   = config.get("github_repo")   or os.getenv("GITHUB_REPO",   "")
     branch = config.get("github_branch", "gh-pages")
-    mode   = config.get("autopush_mode", "git")
+    mode   = config.get("autopush_mode", "api")
 
     ts  = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     msg = config.get(
         "autopush_message",
-        "🤖 PhantomFeed auto-update — {timestamp} ({n} posts)"
+        "🤖 PhantomFeed auto-update — {timestamp} ({n} posts)",
     ).format(timestamp=ts, n=post_count)
 
     log.info("[AutoPush] mode=%s  repo=%s  branch=%s", mode, repo or "(local)", branch)
@@ -275,14 +294,13 @@ def autopush(
     try:
         if mode == "api":
             if not token:
-                log.error("[AutoPush] GITHUB_TOKEN not set — cannot use API mode")
+                log.error("[AutoPush] GITHUB_TOKEN not set — cannot push")
                 return False
             if not repo:
-                log.error("[AutoPush] GITHUB_REPO not set — cannot use API mode")
+                log.error("[AutoPush] GITHUB_REPO not set — cannot push")
                 return False
             return _git_push_api(blog_dir, token, repo, branch, msg)
         else:
-            # git mode — token injected into remote URL if provided
             if token and repo:
                 _inject_token_into_remote(token, repo)
             return _git_push_local(blog_dir, out_dir, msg, branch)
@@ -292,12 +310,12 @@ def autopush(
 
 
 def _inject_token_into_remote(token: str, repo: str) -> None:
-    """Set remote URL with token so push doesn't ask for password."""
+    """Inject PAT into remote URL so `git push` doesn't ask for password."""
     url = f"https://x-access-token:{token}@github.com/{repo}.git"
     try:
         subprocess.run(
             ["git", "remote", "set-url", "origin", url],
-            capture_output=True, check=False
+            capture_output=True, check=False,
         )
     except Exception:
         pass

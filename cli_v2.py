@@ -1,28 +1,21 @@
 #!/usr/bin/env python3
 """
-cli_v2.py — PhantomFeed Upgraded CLI
-======================================
-Drop-in replacement for cli.py with 3 new capabilities:
-
-  1. Deep captions & images (--depth deep|standard)
-  2. Live-only news pulling  (--live flag or live_mode in config)
-  3. Blog publishing         (python cli_v2.py blog)
-
-All original commands still work unchanged.
-
-Usage:
-  python cli_v2.py start              # run one cycle (original)
-  python cli_v2.py start --live       # live-only cycle (no old news)
-  python cli_v2.py start --depth deep # deep caption+image (default)
-  python cli_v2.py daemon             # 24×7 daemon
-  python cli_v2.py daemon --live      # 24×7 live-only daemon
-  python cli_v2.py blog               # build/rebuild static blog site
-  python cli_v2.py blog --clean       # clean-rebuild blog
-  python cli_v2.py status             # show metrics / DB stats
-  python cli_v2.py seed               # inject sample items
-  python cli_v2.py reprocess <id>     # delete ID and reprocess
-  python cli_v2.py purge              # delete all DB records
-  python cli_v2.py healthcheck        # start HTTP health-check server
+cli_v2.py — PhantomFeed Upgraded CLI  ★ FIXED ★
+=================================================
+ROOT CAUSE FIX:
+  argparse subparsers are INDEPENDENT — flags added only to the parent parser
+  are NOT automatically available after the subcommand name.
+  
+  Python argparse parsing order:
+    phantomfeed-v2 [parent flags] <subcommand> [subcommand flags]
+  
+  So "python cli_v2.py daemon --live" fails because --live was only registered
+  on the PARENT, not on the 'daemon' subparser.
+  
+  FIX: _add_run_flags() adds --live and --depth to EVERY subparser that needs them.
+       We also keep them on the parent so both these work:
+         python cli_v2.py --live daemon       ← global position
+         python cli_v2.py daemon --live       ← subcommand position  ✅
 """
 
 from __future__ import annotations
@@ -42,7 +35,7 @@ load_dotenv()
 import banner as _banner
 
 
-# ── Logging setup (identical to cli.py) ──────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 
 def _setup_logging(level: str = "INFO", log_file: str = "logs/app.log") -> None:
     Path(log_file).parent.mkdir(parents=True, exist_ok=True)
@@ -68,10 +61,13 @@ def _setup_logging(level: str = "INFO", log_file: str = "logs/app.log") -> None:
     fmt = JsonFormatter()
     for h in handlers:
         h.setFormatter(fmt)
-    logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO), handlers=handlers)
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        handlers=handlers,
+    )
 
 
-# ── Config loader (extends cli.py loader) ─────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────
 
 def _load_config(path: str = "config.json") -> dict:
     defaults: dict = {
@@ -82,15 +78,20 @@ def _load_config(path: str = "config.json") -> dict:
         "newsapi_page_size":      20,
         "similarity_threshold":   0.92,
         "caption_backend":        "template",
-        "caption_depth":          "deep",       # NEW
+        "caption_depth":          "deep",
         "image_backend":          "placeholder",
-        "image_depth":            "deep",        # NEW
+        "image_depth":            "deep",
         "image_size":             "linkedin",
-        "live_mode":              False,         # NEW
-        "live_lookback_minutes":  90,            # NEW
-        "blog_enabled":           True,          # NEW
-        "blog_dir":               "blog",        # NEW
-        "blog_clean_rebuild":     False,         # NEW
+        "live_mode":              False,
+        "live_lookback_minutes":  90,
+        "blog_enabled":           True,
+        "blog_dir":               "blog",
+        "blog_clean_rebuild":     False,
+        "autopush_enabled":       False,
+        "autopush_mode":          "api",
+        "github_token":           "",
+        "github_repo":            "",
+        "github_branch":          "gh-pages",
         "db_path":                "data/dedupe.db",
         "out_dir":                "out",
         "status_file":            "status.json",
@@ -103,6 +104,7 @@ def _load_config(path: str = "config.json") -> dict:
         with cfg_path.open() as f:
             defaults.update(json.load(f))
 
+    # Environment variable overrides (always win over config.json)
     env_map = {
         "NEWSAPI_KEY":       "newsapi_key",
         "NVD_API_KEY":       "nvd_api_key",
@@ -110,6 +112,8 @@ def _load_config(path: str = "config.json") -> dict:
         "ANTHROPIC_API_KEY": "claude_api_key",
         "CAPTION_BACKEND":   "caption_backend",
         "IMAGE_BACKEND":     "image_backend",
+        "GITHUB_TOKEN":      "github_token",
+        "GITHUB_REPO":       "github_repo",
         "LIVE_MODE":         "live_mode",
     }
     for env_var, cfg_key in env_map.items():
@@ -122,10 +126,11 @@ def _load_config(path: str = "config.json") -> dict:
     return defaults
 
 
-# ── Health-check (identical to cli.py) ────────────────────────────────────────
+# ── Health server ─────────────────────────────────────────────────────────────
 
 async def _health_server(port: int, status_file: str) -> None:
-    import http.server, threading
+    import http.server
+    import threading
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -144,24 +149,93 @@ async def _health_server(port: int, status_file: str) -> None:
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, *_): pass
+        def log_message(self, *_):
+            pass
 
     server = http.server.HTTPServer(("0.0.0.0", port), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     logging.getLogger(__name__).info("Health-check server on :%d", port)
 
 
-# ── Commands ──────────────────────────────────────────────────────────────────
+# ── Seed items ────────────────────────────────────────────────────────────────
 
-def cmd_start(args, config: dict) -> None:
-    """Run one fetch cycle and exit."""
-    # Apply CLI overrides
+SEED_ITEMS = [
+    {
+        "title": "CVE-2026-1234 — Critical RCE in Apache HTTP Server 2.4",
+        "description": (
+            "A critical remote code execution vulnerability (CVSS 9.8) "
+            "was disclosed in Apache HTTP Server 2.4.x. Unauthenticated "
+            "attackers can execute arbitrary code via a malformed HTTP/2 "
+            "request header. All 2.4.x versions prior to 2.4.61 are affected."
+        ),
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1234",
+        "published_at": "2026-01-15T12:00:00Z",
+        "source": "NVD-Seed",
+    },
+    {
+        "title": "Massive Phishing Campaign Targets Indian Banks (2026)",
+        "description": (
+            "A large-scale phishing campaign impersonating major Indian banks "
+            "was detected distributing credential-harvesting pages via WhatsApp "
+            "and SMS. Over 50,000 victims reported across 12 states."
+        ),
+        "url": "https://example.com/phishing-india-2026",
+        "published_at": "2026-01-16T08:30:00Z",
+        "source": "SecurityWeek-Seed",
+    },
+    {
+        "title": "Ransomware Group Claims Healthcare Provider Breach",
+        "description": (
+            "The Clop ransomware group claimed responsibility for a breach "
+            "affecting a major healthcare provider, reportedly exfiltrating "
+            "2 TB of patient records including PII and medical data."
+        ),
+        "url": "https://example.com/ransomware-health-2026",
+        "published_at": "2026-01-17T10:15:00Z",
+        "source": "ThreatPost-Seed",
+    },
+]
+
+
+# ── Shared flag helper ────────────────────────────────────────────────────────
+
+def _add_run_flags(parser: argparse.ArgumentParser) -> None:
+    """
+    Add --live and --depth to a subparser.
+    Called for every subcommand that can run fetch cycles.
+    This is the KEY FIX — these flags must be on the subparser,
+    not just the parent parser.
+    """
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        default=False,
+        help="Live-only mode: fetch only articles newer than last run (no old news)",
+    )
+    parser.add_argument(
+        "--depth",
+        choices=["deep", "standard"],
+        default=None,
+        help="Caption/image depth. 'deep' = full analysis, 'standard' = original short caption",
+    )
+
+
+def _apply_overrides(args: argparse.Namespace, config: dict) -> None:
+    """Apply CLI flag overrides onto config dict."""
+    # --live (check subcommand-level first, then fall back to parent-level)
     if getattr(args, "live", False):
         config["live_mode"] = True
-    if getattr(args, "depth", None):
-        config["caption_depth"] = args.depth
-        config["image_depth"]   = args.depth
+    # --depth
+    depth = getattr(args, "depth", None)
+    if depth:
+        config["caption_depth"] = depth
+        config["image_depth"]   = depth
 
+
+# ── Commands ──────────────────────────────────────────────────────────────────
+
+def cmd_start(args: argparse.Namespace, config: dict) -> None:
+    _apply_overrides(args, config)
     from core_v2 import run_cycle
     from pipeline.dedupe import DedupeDB
 
@@ -169,23 +243,18 @@ def cmd_start(args, config: dict) -> None:
     counts = asyncio.run(run_cycle(config, db, config["out_dir"]))
     print(f"\n✅ Cycle complete: {json.dumps(counts, indent=2)}")
     if config.get("blog_enabled", True):
-        print(f"\n🌐 Blog updated → {config.get('blog_dir','blog')}/index.html")
+        print(f"🌐 Blog → {config.get('blog_dir','blog')}/index.html")
     db.close()
 
 
-def cmd_daemon(args, config: dict) -> None:
-    """Run the 24×7 daemon."""
-    if getattr(args, "live", False):
-        config["live_mode"] = True
-    if getattr(args, "depth", None):
-        config["caption_depth"] = args.depth
-        config["image_depth"]   = args.depth
-
+def cmd_daemon(args: argparse.Namespace, config: dict) -> None:
+    _apply_overrides(args, config)
     from core_v2 import run_daemon
     from pipeline.dedupe import DedupeDB
 
     db = DedupeDB(config["db_path"])
     loop = asyncio.new_event_loop()
+
     if config.get("health_port"):
         loop.run_until_complete(
             _health_server(config["health_port"], config["status_file"])
@@ -199,161 +268,138 @@ def cmd_daemon(args, config: dict) -> None:
         loop.close()
 
 
-def cmd_blog(args, config: dict) -> None:
-    """Build / rebuild the static blog site."""
+def cmd_blog(args: argparse.Namespace, config: dict) -> None:
     from publisher.blog_publisher import publish as blog_publish
-    clean = getattr(args, "clean", False) or config.get("blog_clean_rebuild", False)
+    clean    = getattr(args, "clean", False) or config.get("blog_clean_rebuild", False)
     blog_dir = config.get("blog_dir", "blog")
     print(f"\n🏗  Building static blog → {blog_dir}/")
-    n = blog_publish(
-        out_dir=config["out_dir"],
-        blog_dir=blog_dir,
-        clean=clean,
-    )
-    print(f"✅ Blog published: {n} posts")
-    print(f"   Open: {blog_dir}/index.html")
-    print(f"   Deploy: push {blog_dir}/ to GitHub Pages / Netlify / any static host")
+    n = blog_publish(out_dir=config["out_dir"], blog_dir=blog_dir, clean=clean)
+    print(f"✅ Blog published: {n} posts → open {blog_dir}/index.html")
 
 
-def cmd_status(args, config: dict) -> None:
-    """Print DB stats and latest metrics."""
+def cmd_status(args: argparse.Namespace, config: dict) -> None:
     from pipeline.dedupe import DedupeDB
-    db = DedupeDB(config["db_path"])
+    db    = DedupeDB(config["db_path"])
     stats = db.stats()
     db.close()
     print("\n=== PhantomFeed — Status ===")
-    print(f"DB: {config['db_path']}")
     for k, v in stats.items():
         print(f"  {k:20s}: {v}")
     sf = Path(config["status_file"])
     if sf.exists():
-        print("\nLatest metrics (status.json):")
+        print("\nLatest metrics:")
         print(sf.read_text())
     blog_dir = Path(config.get("blog_dir", "blog"))
     if blog_dir.exists():
-        post_count = len(list((blog_dir / "posts").glob("*/index.html"))) if (blog_dir / "posts").exists() else 0
-        print(f"\nBlog:  {blog_dir}/index.html  ({post_count} posts published)")
+        posts_dir = blog_dir / "posts"
+        count = len(list(posts_dir.glob("*/index.html"))) if posts_dir.exists() else 0
+        print(f"\nBlog: {blog_dir}/index.html  ({count} posts)")
 
 
-def cmd_reprocess(args, config: dict) -> None:
+def cmd_reprocess(args: argparse.Namespace, config: dict) -> None:
     from pipeline.dedupe import DedupeDB
     db = DedupeDB(config["db_path"])
     ok = db.delete(args.id)
     db.close()
     if ok:
-        print(f"✅ Deleted {args.id!r} from DB. Run 'start' to reprocess.")
+        print(f"✅ Deleted {args.id!r} — run 'start' to reprocess.")
     else:
-        print(f"⚠️  ID {args.id!r} not found in DB.")
+        print(f"⚠️  ID {args.id!r} not found.")
 
 
-def cmd_purge(args, config: dict) -> None:
-    confirm = input("⚠️  This will delete ALL processed records. Type YES to confirm: ")
+def cmd_purge(args: argparse.Namespace, config: dict) -> None:
+    confirm = input("⚠️  Delete ALL records? Type YES to confirm: ")
     if confirm.strip() != "YES":
-        print("Aborted."); return
+        print("Aborted.")
+        return
     from pipeline.dedupe import DedupeDB
     db = DedupeDB(config["db_path"])
-    n = db.purge()
+    n  = db.purge()
     db.close()
-    print(f"✅ Purged {n} records from DB.")
+    print(f"✅ Purged {n} records.")
 
 
-# Seed items (kept from cli.py for test compatibility)
-SEED_ITEMS = [
-    {
-        "title": "CVE-2026-1234 — Critical RCE in Apache HTTP Server 2.4",
-        "description": (
-            "A critical remote code execution vulnerability (CVSS 9.8) "
-            "was disclosed in Apache HTTP Server 2.4.x allowing "
-            "unauthenticated attackers to execute arbitrary code via "
-            "a malformed HTTP/2 request header."
-        ),
-        "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1234",
-        "published_at": "2026-01-15T12:00:00Z",
-        "source": "NVD-Seed",
-    },
-    {
-        "title": "Massive Phishing Campaign Targets Indian Banks (2026)",
-        "description": (
-            "A large-scale phishing campaign impersonating major Indian "
-            "banks was detected distributing credential-harvesting pages "
-            "via WhatsApp and SMS. Over 50,000 victims reported."
-        ),
-        "url": "https://example.com/phishing-india-2026",
-        "published_at": "2026-01-16T08:30:00Z",
-        "source": "SecurityWeek-Seed",
-    },
-    {
-        "title": "Ransomware Group Claims Healthcare Provider Breach",
-        "description": (
-            "The Clop ransomware group claimed responsibility for a "
-            "breach affecting a major healthcare provider, reportedly "
-            "exfiltrating 2 TB of patient records."
-        ),
-        "url": "https://example.com/ransomware-health-2026",
-        "published_at": "2026-01-17T10:15:00Z",
-        "source": "ThreatPost-Seed",
-    },
-]
-
-
-def cmd_seed(args, config: dict) -> None:
-    """Inject seed test items — also rebuilds blog after."""
+def cmd_seed(args: argparse.Namespace, config: dict) -> None:
+    _apply_overrides(args, config)
     from core_v2 import process_item
     from pipeline import normalize
     from pipeline.dedupe import DedupeDB
 
     db = DedupeDB(config["db_path"])
-    print(f"Seeding {len(SEED_ITEMS)} test items (depth={config.get('caption_depth','deep')})...")
+    print(f"Seeding {len(SEED_ITEMS)} items (depth={config.get('caption_depth','deep')})...")
     for raw in SEED_ITEMS:
-        item = normalize(raw, fmt="rss")
+        item   = normalize(raw, fmt="rss")
         result = process_item(item, db, config, config["out_dir"])
         print(f"  [{result:10s}] {raw['title'][:60]}")
     db.close()
-    print(f"\n✅ Seed complete. Check {config['out_dir']}/ for output.")
-    # Rebuild blog
+    print(f"\n✅ Seed complete → check {config['out_dir']}/")
+
     if config.get("blog_enabled", True):
         cmd_blog(args, config)
+
+    if config.get("autopush_enabled", False):
+        from publisher.git_autopush import autopush
+        pushed = autopush(config=config, blog_dir=config.get("blog_dir","blog"),
+                          out_dir=config["out_dir"], post_count=len(SEED_ITEMS))
+        if pushed:
+            print(f"✅ Auto-pushed seed posts to GitHub → {config.get('github_branch','gh-pages')}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # ── Root parser ──────────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(
         prog="phantomfeed-v2",
-        description="PhantomFeed v2 — Cybersecurity news → deep-analysis blog",
+        description="PhantomFeed v2 — Cybersecurity news automation with deep blog",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--config",   default="config.json")
-    parser.add_argument("--loglevel", default=None)
-    parser.add_argument("--live",     action="store_true", help="Enable live-only mode")
-    parser.add_argument("--depth",    choices=["deep", "standard"], default=None,
-                        help="Caption/image depth (default: deep)")
+    parser.add_argument("--config",   default="config.json",
+                        help="Path to config.json (default: config.json)")
+    parser.add_argument("--loglevel", default=None,
+                        choices=["DEBUG","INFO","WARNING","ERROR"],
+                        help="Override log level")
 
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command", required=True,
+                                metavar="{start,daemon,blog,status,purge,seed,healthcheck,reprocess}")
 
-    sub.add_parser("start",       help="Run one fetch cycle")
-    sub.add_parser("daemon",      help="Run 24×7 daemon")
-    sub.add_parser("status",      help="Show DB and metrics status")
-    sub.add_parser("purge",       help="Purge all DB records")
-    sub.add_parser("seed",        help="Inject seed test items")
-    sub.add_parser("healthcheck", help="Start health-check HTTP server")
+    # ── start ────────────────────────────────────────────────────────────────
+    p_start = sub.add_parser("start", help="Run one fetch+generate cycle then exit")
+    _add_run_flags(p_start)
 
-    blog_p = sub.add_parser("blog", help="Build/rebuild static blog website")
-    blog_p.add_argument("--clean", action="store_true", help="Clean-rebuild blog")
+    # ── daemon ───────────────────────────────────────────────────────────────
+    p_daemon = sub.add_parser("daemon", help="Run 24×7 continuous daemon")
+    _add_run_flags(p_daemon)
+    # FIX: --live is now registered on p_daemon so "daemon --live" works
 
-    rp = sub.add_parser("reprocess", help="Force-reprocess a canonical ID")
-    rp.add_argument("id", help="Canonical ID (e.g. cve:CVE-2026-1234)")
+    # ── blog ─────────────────────────────────────────────────────────────────
+    p_blog = sub.add_parser("blog", help="Build / rebuild static blog from out/ directory")
+    p_blog.add_argument("--clean", action="store_true",
+                        help="Delete blog/ before rebuilding (full clean rebuild)")
 
-    args = parser.parse_args()
+    # ── status ───────────────────────────────────────────────────────────────
+    sub.add_parser("status", help="Show database stats and last-run metrics")
+
+    # ── purge ────────────────────────────────────────────────────────────────
+    sub.add_parser("purge", help="Purge all processed-item records from the database")
+
+    # ── seed ─────────────────────────────────────────────────────────────────
+    p_seed = sub.add_parser("seed", help="Inject test seed items (no API keys needed)")
+    _add_run_flags(p_seed)
+
+    # ── healthcheck ──────────────────────────────────────────────────────────
+    sub.add_parser("healthcheck", help="Start the health-check HTTP server on configured port")
+
+    # ── reprocess ────────────────────────────────────────────────────────────
+    p_rp = sub.add_parser("reprocess", help="Force-reprocess a specific canonical ID")
+    p_rp.add_argument("id", help="Canonical ID to delete and reprocess")
+
+    # ── Parse ─────────────────────────────────────────────────────────────────
+    args   = parser.parse_args()
     config = _load_config(args.config)
 
-    # CLI flag overrides
     if args.loglevel:
         config["log_level"] = args.loglevel
-    if getattr(args, "live", False):
-        config["live_mode"] = True
-    if getattr(args, "depth", None):
-        config["caption_depth"] = args.depth
-        config["image_depth"]   = args.depth
 
     _setup_logging(config.get("log_level", "INFO"), config.get("log_file", "logs/app.log"))
 
@@ -363,6 +409,7 @@ def main() -> None:
         status_file=config.get("status_file", "status.json"),
     )
 
+    # ── Dispatch ──────────────────────────────────────────────────────────────
     dispatch = {
         "start":       cmd_start,
         "daemon":      cmd_daemon,
