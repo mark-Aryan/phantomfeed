@@ -8,7 +8,7 @@
     
   <item>
     <title><![CDATA[CVE-2026-1234 — Critical RCE in Apache HTTP Server 2.4]]></title>
-    <link>posts/cve-2026-1234-critical-rce-in-apache-htt-2599b4/index.html</link>
+    <link>posts/cve-2026-1234-critical-rce-in-apache-htt-2599b4-261234/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-1234</guid>
     <pubDate>Tue, 03 Mar 2026 08:10:47 +0000</pubDate>
     <category>vulnerability</category>
@@ -26,7 +26,7 @@
   </item>
   <item>
     <title><![CDATA[Android gets patches for Qualcomm zero-day exploited in attacks]]></title>
-    <link>posts/android-gets-patches-for-qualcomm-zero-d-f484f5/index.html</link>
+    <link>posts/android-gets-patches-for-qualcomm-zero-d-f484f5-d4a474/index.html</link>
     <guid isPermaLink="false">url:e84a384967d4a474</guid>
     <pubDate>Tue, 03 Mar 2026 03:19:53 -0500</pubDate>
     <category>vulnerability</category>
@@ -42,7 +42,7 @@
   </item>
   <item>
     <title><![CDATA[New Chrome Vulnerability Let Malicious Extensions Escalate Privileges via Gemini Panel]]></title>
-    <link>posts/new-chrome-vulnerability-let-malicious-e-1922a2/index.html</link>
+    <link>posts/new-chrome-vulnerability-let-malicious-e-1922a2-9c3327/index.html</link>
     <guid isPermaLink="false">url:28f00bb7279c3327</guid>
     <pubDate>Mon, 02 Mar 2026 22:38:00 +0530</pubDate>
     <category>vulnerability</category>
@@ -58,7 +58,7 @@
   </item>
   <item>
     <title><![CDATA[CVE-2026-3422]]></title>
-    <link>posts/cve-2026-3422-ac85d3/index.html</link>
+    <link>posts/cve-2026-3422-ac85d3-263422/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3422</guid>
     <pubDate>Mon, 02 Mar 2026 07:16:23 -0000</pubDate>
     <category>vulnerability</category>
@@ -76,7 +76,7 @@ U-Office Force developed by e-Excellence has a Insecure Deserialization vul]]></
   </item>
   <item>
     <title><![CDATA[CVE-2026-3413]]></title>
-    <link>posts/cve-2026-3413-d1d3a2/index.html</link>
+    <link>posts/cve-2026-3413-d1d3a2-263413/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3413</guid>
     <pubDate>Mon, 02 Mar 2026 07:16:23 -0000</pubDate>
     <category>vulnerability</category>
@@ -94,7 +94,7 @@ A flaw has been found in itsourcecode University Management System 1.0. ]]></des
   </item>
   <item>
     <title><![CDATA[CVE-2026-3412]]></title>
-    <link>posts/cve-2026-3412-edadc4/index.html</link>
+    <link>posts/cve-2026-3412-edadc4-263412/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3412</guid>
     <pubDate>Mon, 02 Mar 2026 06:15:59 -0000</pubDate>
     <category>vulnerability</category>
@@ -112,7 +112,7 @@ A vulnerability was detected in itsourcecode University Management System 1.0. T
   </item>
   <item>
     <title><![CDATA[CVE-2026-3411]]></title>
-    <link>posts/cve-2026-3411-aadd1e/index.html</link>
+    <link>posts/cve-2026-3411-aadd1e-263411/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3411</guid>
     <pubDate>Mon, 02 Mar 2026 05:16:19 -0000</pubDate>
     <category>vulnerability</category>
@@ -130,7 +130,7 @@ A security vulnerability has been detected in itsourcecode University Management
   </item>
   <item>
     <title><![CDATA[CVE-2026-3410]]></title>
-    <link>posts/cve-2026-3410-460e11/index.html</link>
+    <link>posts/cve-2026-3410-460e11-263410/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3410</guid>
     <pubDate>Mon, 02 Mar 2026 05:16:19 -0000</pubDate>
     <category>vulnerability</category>
@@ -148,7 +148,7 @@ A weakness has been identified in itsourcecode Society Management System 1.0. Af
   </item>
   <item>
     <title><![CDATA[CVE-2026-3409]]></title>
-    <link>posts/cve-2026-3409-902b3d/index.html</link>
+    <link>posts/cve-2026-3409-902b3d-263409/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3409</guid>
     <pubDate>Mon, 02 Mar 2026 05:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -166,7 +166,7 @@ A security flaw has been discovered in eosphoros-ai db-gpt 0.7.5.]]></descriptio
   </item>
   <item>
     <title><![CDATA[CVE-2026-3408]]></title>
-    <link>posts/cve-2026-3408-8c3e2b/index.html</link>
+    <link>posts/cve-2026-3408-8c3e2b-263408/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3408</guid>
     <pubDate>Mon, 02 Mar 2026 04:16:06 -0000</pubDate>
     <category>vulnerability</category>
@@ -184,7 +184,7 @@ A vulnerability was identified in Open Babe]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-3407]]></title>
-    <link>posts/cve-2026-3407-aedee9/index.html</link>
+    <link>posts/cve-2026-3407-aedee9-263407/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3407</guid>
     <pubDate>Mon, 02 Mar 2026 03:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -202,7 +202,7 @@ A vulnerability was determined in YosysHQ yosys up to 0.62. This affects the fun
   </item>
   <item>
     <title><![CDATA[CVE-2026-3406]]></title>
-    <link>posts/cve-2026-3406-a23533/index.html</link>
+    <link>posts/cve-2026-3406-a23533-263406/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3406</guid>
     <pubDate>Mon, 02 Mar 2026 03:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -220,7 +220,7 @@ A vulnerability was found in projectworlds Online Art Gallery Shop 1.0. The impa
   </item>
   <item>
     <title><![CDATA[CVE-2026-3405]]></title>
-    <link>posts/cve-2026-3405-47d58c/index.html</link>
+    <link>posts/cve-2026-3405-47d58c-263405/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3405</guid>
     <pubDate>Mon, 02 Mar 2026 02:16:20 -0000</pubDate>
     <category>vulnerability</category>
@@ -238,7 +238,7 @@ A vulnerability has been found in thinkgem JeeSite up to 5.15.1. The affected el
   </item>
   <item>
     <title><![CDATA[CVE-2026-3404]]></title>
-    <link>posts/cve-2026-3404-2052d6/index.html</link>
+    <link>posts/cve-2026-3404-2052d6-263404/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3404</guid>
     <pubDate>Mon, 02 Mar 2026 02:16:19 -0000</pubDate>
     <category>vulnerability</category>
@@ -256,7 +256,7 @@ A flaw has been found in thinkgem JeeSite up to 5.15.1. Impacted is an unknown f
   </item>
   <item>
     <title><![CDATA[CVE-2026-3403]]></title>
-    <link>posts/cve-2026-3403-e36bb8/index.html</link>
+    <link>posts/cve-2026-3403-e36bb8-263403/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3403</guid>
     <pubDate>Mon, 02 Mar 2026 02:16:18 -0000</pubDate>
     <category>vulnerability</category>
@@ -274,7 +274,7 @@ A vulnerability was detected in PHPGurukul Student Record Management System 1.0.
   </item>
   <item>
     <title><![CDATA[CVE-2026-3402]]></title>
-    <link>posts/cve-2026-3402-df256a/index.html</link>
+    <link>posts/cve-2026-3402-df256a-263402/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3402</guid>
     <pubDate>Mon, 02 Mar 2026 01:16:03 -0000</pubDate>
     <category>vulnerability</category>
@@ -292,7 +292,7 @@ A security vulnerability has been detected in PHPGurukul Student Record Manageme
   </item>
   <item>
     <title><![CDATA[CVE-2026-3401]]></title>
-    <link>posts/cve-2026-3401-aec71f/index.html</link>
+    <link>posts/cve-2026-3401-aec71f-263401/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3401</guid>
     <pubDate>Mon, 02 Mar 2026 01:16:02 -0000</pubDate>
     <category>vulnerability</category>
@@ -310,7 +310,7 @@ A weakness has been identified]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-3400]]></title>
-    <link>posts/cve-2026-3400-5a7edc/index.html</link>
+    <link>posts/cve-2026-3400-5a7edc-263400/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3400</guid>
     <pubDate>Mon, 02 Mar 2026 00:16:03 -0000</pubDate>
     <category>vulnerability</category>
@@ -328,7 +328,7 @@ A security flaw has been discovered in Tenda AC15 up to 15.13.07.13. Affected by
   </item>
   <item>
     <title><![CDATA[CVE-2026-3000]]></title>
-    <link>posts/cve-2026-3000-e61b5a/index.html</link>
+    <link>posts/cve-2026-3000-e61b5a-263000/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-3000</guid>
     <pubDate>Mon, 02 Mar 2026 07:16:23 -0000</pubDate>
     <category>vulnerability</category>
@@ -346,7 +346,7 @@ IDExpert Windows Logon Agent developed by Changing has a Remote Code Ex]]></desc
   </item>
   <item>
     <title><![CDATA[CVE-2026-2999]]></title>
-    <link>posts/cve-2026-2999-6bed70/index.html</link>
+    <link>posts/cve-2026-2999-6bed70-262999/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-2999</guid>
     <pubDate>Mon, 02 Mar 2026 07:16:22 -0000</pubDate>
     <category>vulnerability</category>
@@ -364,7 +364,7 @@ IDExpert Windows Logon Agent developed by Changing has a Remote Code Exe]]></des
   </item>
   <item>
     <title><![CDATA[CVE-2026-2584]]></title>
-    <link>posts/cve-2026-2584-6abfa1/index.html</link>
+    <link>posts/cve-2026-2584-6abfa1-262584/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-2584</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:18 -0000</pubDate>
     <category>vulnerability</category>
@@ -382,7 +382,7 @@ A critical SQL Injection (SQLi) vulner]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20445]]></title>
-    <link>posts/cve-2026-20445-980cc7/index.html</link>
+    <link>posts/cve-2026-20445-980cc7-620445/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20445</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:18 -0000</pubDate>
     <category>vulnerability</category>
@@ -400,7 +400,7 @@ In MDDP, there is a possible system crash due to a race condition]]></descriptio
   </item>
   <item>
     <title><![CDATA[CVE-2026-20444]]></title>
-    <link>posts/cve-2026-20444-4be442/index.html</link>
+    <link>posts/cve-2026-20444-4be442-620444/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20444</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -418,7 +418,7 @@ In display, there is a possible memory corruption due to a missing b]]></descrip
   </item>
   <item>
     <title><![CDATA[CVE-2026-20443]]></title>
-    <link>posts/cve-2026-20443-901b42/index.html</link>
+    <link>posts/cve-2026-20443-901b42-620443/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20443</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -436,7 +436,7 @@ In display, there is a possible memory corruption due to use afte]]></descriptio
   </item>
   <item>
     <title><![CDATA[CVE-2026-20442]]></title>
-    <link>posts/cve-2026-20442-d9ca2a/index.html</link>
+    <link>posts/cve-2026-20442-d9ca2a-620442/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20442</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -454,7 +454,7 @@ In display, there is a possible system crash due to use after free. ]]></descrip
   </item>
   <item>
     <title><![CDATA[CVE-2026-20441]]></title>
-    <link>posts/cve-2026-20441-619b3b/index.html</link>
+    <link>posts/cve-2026-20441-619b3b-620441/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20441</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -472,7 +472,7 @@ In MAE, there is a possible out of bounds write due to a missi]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20440]]></title>
-    <link>posts/cve-2026-20440-38c9c8/index.html</link>
+    <link>posts/cve-2026-20440-38c9c8-620440/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20440</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -490,7 +490,7 @@ In MAE, there is a possible out of bounds write due to a missin]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20439]]></title>
-    <link>posts/cve-2026-20439-3f15d0/index.html</link>
+    <link>posts/cve-2026-20439-3f15d0-620439/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20439</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -508,7 +508,7 @@ In imgsys, there is a possible system crash due to use after free]]></descriptio
   </item>
   <item>
     <title><![CDATA[CVE-2026-20438]]></title>
-    <link>posts/cve-2026-20438-30829e/index.html</link>
+    <link>posts/cve-2026-20438-30829e-620438/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20438</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:17 -0000</pubDate>
     <category>vulnerability</category>
@@ -526,7 +526,7 @@ In MAE, there is a possible out of bounds write due to a race condit]]></descrip
   </item>
   <item>
     <title><![CDATA[CVE-2026-20437]]></title>
-    <link>posts/cve-2026-20437-077767/index.html</link>
+    <link>posts/cve-2026-20437-077767-620437/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20437</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:16 -0000</pubDate>
     <category>vulnerability</category>
@@ -544,7 +544,7 @@ In MAE, there is a possible system crash due to use after free. T]]></descriptio
   </item>
   <item>
     <title><![CDATA[CVE-2026-20436]]></title>
-    <link>posts/cve-2026-20436-6db103/index.html</link>
+    <link>posts/cve-2026-20436-6db103-620436/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20436</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:16 -0000</pubDate>
     <category>vulnerability</category>
@@ -562,7 +562,7 @@ In wlan STA driver, there is a possible escalation of privileg]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20435]]></title>
-    <link>posts/cve-2026-20435-889a2a/index.html</link>
+    <link>posts/cve-2026-20435-889a2a-620435/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20435</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:16 -0000</pubDate>
     <category>vulnerability</category>
@@ -580,7 +580,7 @@ In preloader, there is a possible read of device unique identifiers ]]></descrip
   </item>
   <item>
     <title><![CDATA[CVE-2026-20434]]></title>
-    <link>posts/cve-2026-20434-78e457/index.html</link>
+    <link>posts/cve-2026-20434-78e457-620434/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20434</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:16 -0000</pubDate>
     <category>vulnerability</category>
@@ -598,7 +598,7 @@ In Modem, there is a possible out of bounds write due to a missin]]></descriptio
   </item>
   <item>
     <title><![CDATA[CVE-2026-20430]]></title>
-    <link>posts/cve-2026-20430-c090c0/index.html</link>
+    <link>posts/cve-2026-20430-c090c0-620430/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20430</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:16 -0000</pubDate>
     <category>vulnerability</category>
@@ -616,7 +616,7 @@ In wlan AP FW, there is a possible out of bounds write due to ]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20429]]></title>
-    <link>posts/cve-2026-20429-0970bd/index.html</link>
+    <link>posts/cve-2026-20429-0970bd-620429/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20429</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:16 -0000</pubDate>
     <category>vulnerability</category>
@@ -634,7 +634,7 @@ In display, there is a possible out of bounds read due to a missing ]]></descrip
   </item>
   <item>
     <title><![CDATA[CVE-2026-20428]]></title>
-    <link>posts/cve-2026-20428-71dad5/index.html</link>
+    <link>posts/cve-2026-20428-71dad5-620428/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20428</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:16 -0000</pubDate>
     <category>vulnerability</category>
@@ -652,7 +652,7 @@ In display, there is a possible out of bounds write due to a mi]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20427]]></title>
-    <link>posts/cve-2026-20427-633c64/index.html</link>
+    <link>posts/cve-2026-20427-633c64-620427/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20427</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:15 -0000</pubDate>
     <category>vulnerability</category>
@@ -670,7 +670,7 @@ In display, there is a possible escalation of privilege due to]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20426]]></title>
-    <link>posts/cve-2026-20426-9cb5ad/index.html</link>
+    <link>posts/cve-2026-20426-9cb5ad-620426/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20426</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:15 -0000</pubDate>
     <category>vulnerability</category>
@@ -688,7 +688,7 @@ In display, there is a possible out of bounds write due to a mi]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20425]]></title>
-    <link>posts/cve-2026-20425-217b8e/index.html</link>
+    <link>posts/cve-2026-20425-217b8e-620425/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20425</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:15 -0000</pubDate>
     <category>vulnerability</category>
@@ -706,7 +706,7 @@ In display, there is a possible out of bounds write due to a missing]]></descrip
   </item>
   <item>
     <title><![CDATA[CVE-2026-20424]]></title>
-    <link>posts/cve-2026-20424-b50556/index.html</link>
+    <link>posts/cve-2026-20424-b50556-620424/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20424</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:15 -0000</pubDate>
     <category>vulnerability</category>
@@ -724,7 +724,7 @@ In display, there is a possible out of bounds read due to a mi]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20423]]></title>
-    <link>posts/cve-2026-20423-7c188b/index.html</link>
+    <link>posts/cve-2026-20423-7c188b-620423/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20423</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:15 -0000</pubDate>
     <category>vulnerability</category>
@@ -742,7 +742,7 @@ In wlan STA driver, there is a possible out of bounds write due]]></description>
   </item>
   <item>
     <title><![CDATA[CVE-2026-20416]]></title>
-    <link>posts/cve-2026-20416-927668/index.html</link>
+    <link>posts/cve-2026-20416-927668-620416/index.html</link>
     <guid isPermaLink="false">cve:CVE-2026-20416</guid>
     <pubDate>Mon, 02 Mar 2026 09:16:15 -0000</pubDate>
     <category>vulnerability</category>
@@ -760,7 +760,7 @@ In pcie, there is a possible out of bounds write due to a missing bo]]></descrip
   </item>
   <item>
     <title><![CDATA[CVE-2025-58406]]></title>
-    <link>posts/cve-2025-58406-4b0e42/index.html</link>
+    <link>posts/cve-2025-58406-4b0e42-558406/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-58406</guid>
     <pubDate>Mon, 02 Mar 2026 12:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -778,7 +778,7 @@ The CGM CLININET application respond without essential security HTTP headers, ex
   </item>
   <item>
     <title><![CDATA[CVE-2025-58405]]></title>
-    <link>posts/cve-2025-58405-8983cf/index.html</link>
+    <link>posts/cve-2025-58405-8983cf-558405/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-58405</guid>
     <pubDate>Mon, 02 Mar 2026 12:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -796,7 +796,7 @@ The CGM CLININET application does not implement any mechanisms that prevent cli]
   </item>
   <item>
     <title><![CDATA[CVE-2025-58402]]></title>
-    <link>posts/cve-2025-58402-cffc64/index.html</link>
+    <link>posts/cve-2025-58402-cffc64-558402/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-58402</guid>
     <pubDate>Mon, 02 Mar 2026 12:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -814,7 +814,7 @@ The CGM CLININET application uses direct, sequential object identifiers "Messag]
   </item>
   <item>
     <title><![CDATA[CVE-2025-30062]]></title>
-    <link>posts/cve-2025-30062-fe87f3/index.html</link>
+    <link>posts/cve-2025-30062-fe87f3-530062/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-30062</guid>
     <pubDate>Mon, 02 Mar 2026 12:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -832,7 +832,7 @@ In the "CheckUnitCodeAndKey.pl" service, the "validateOrgUnit" function is vulne
   </item>
   <item>
     <title><![CDATA[CVE-2025-30044]]></title>
-    <link>posts/cve-2025-30044-1f4cba/index.html</link>
+    <link>posts/cve-2025-30044-1f4cba-530044/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-30044</guid>
     <pubDate>Mon, 02 Mar 2026 12:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -850,7 +850,7 @@ In the endpoints "/cgi-bin/CliniNET.prd/utils/usrlogstat_simple.pl", "/cgi-bi]]>
   </item>
   <item>
     <title><![CDATA[CVE-2025-30042]]></title>
-    <link>posts/cve-2025-30042-cc2cbe/index.html</link>
+    <link>posts/cve-2025-30042-cc2cbe-530042/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-30042</guid>
     <pubDate>Mon, 02 Mar 2026 12:16:01 -0000</pubDate>
     <category>vulnerability</category>
@@ -868,7 +868,7 @@ The CGM CLININET system provides smart card authentication; however, authenti]]>
   </item>
   <item>
     <title><![CDATA[CVE-2025-30035]]></title>
-    <link>posts/cve-2025-30035-ba61d2/index.html</link>
+    <link>posts/cve-2025-30035-ba61d2-530035/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-30035</guid>
     <pubDate>Mon, 02 Mar 2026 12:16:00 -0000</pubDate>
     <category>vulnerability</category>
@@ -886,7 +886,7 @@ The vulnerability enables an attacker to fully bypass authentication in CGM CLI]
   </item>
   <item>
     <title><![CDATA[CVE-2025-15597]]></title>
-    <link>posts/cve-2025-15597-b271ea/index.html</link>
+    <link>posts/cve-2025-15597-b271ea-515597/index.html</link>
     <guid isPermaLink="false">cve:CVE-2025-15597</guid>
     <pubDate>Mon, 02 Mar 2026 07:16:22 -0000</pubDate>
     <category>vulnerability</category>

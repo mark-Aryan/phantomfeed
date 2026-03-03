@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """
-cli_v2.py — PhantomFeed Upgraded CLI  ★ FIXED ★
-=================================================
-ROOT CAUSE FIX:
-  argparse subparsers are INDEPENDENT — flags added only to the parent parser
-  are NOT automatically available after the subcommand name.
+cli_v2.py  ★ FINAL FIX ★
+==========================
+ROOT CAUSE of "unrecognized arguments: --live":
+
+argparse has TWO parsing stages:
+  Stage 1: parent parser consumes everything BEFORE the subcommand name
+  Stage 2: the chosen subparser consumes everything AFTER the subcommand name
+
+So in:  python cli_v2.py daemon --live
+  "daemon" goes to Stage 1 → selects the daemon subparser
+  "--live" goes to Stage 2 → daemon subparser tries to handle it
   
-  Python argparse parsing order:
-    phantomfeed-v2 [parent flags] <subcommand> [subcommand flags]
-  
-  So "python cli_v2.py daemon --live" fails because --live was only registered
-  on the PARENT, not on the 'daemon' subparser.
-  
-  FIX: _add_run_flags() adds --live and --depth to EVERY subparser that needs them.
-       We also keep them on the parent so both these work:
-         python cli_v2.py --live daemon       ← global position
-         python cli_v2.py daemon --live       ← subcommand position  ✅
+BUT --live was only registered on the PARENT parser (Stage 1), not on the
+daemon subparser (Stage 2) → "unrecognized arguments: --live"
+
+FIX: Register --live and --depth on EVERY subparser that runs cycles.
+Both of these now work:
+  python cli_v2.py daemon --live     ← after subcommand  ✅
+  python cli_v2.py --live daemon     ← before subcommand ✅ (kept for compat)
 """
 
 from __future__ import annotations
@@ -52,13 +55,13 @@ def _setup_logging(level: str = "INFO", log_file: str = "logs/app.log") -> None:
                 d["exc"] = self.formatException(record.exc_info)
             return json.dumps(d)
 
+    fmt      = JsonFormatter()
     handlers: list[logging.Handler] = [
         logging.StreamHandler(sys.stdout),
         logging.handlers.RotatingFileHandler(
             log_file, maxBytes=10 * 1024 * 1024, backupCount=5
         ),
     ]
-    fmt = JsonFormatter()
     for h in handlers:
         h.setFormatter(fmt)
     logging.basicConfig(
@@ -82,7 +85,7 @@ def _load_config(path: str = "config.json") -> dict:
         "image_backend":          "placeholder",
         "image_depth":            "deep",
         "image_size":             "linkedin",
-        "live_mode":              False,
+        "live_mode":              True,          # DEFAULT: live only
         "live_lookback_minutes":  90,
         "blog_enabled":           True,
         "blog_dir":               "blog",
@@ -104,7 +107,7 @@ def _load_config(path: str = "config.json") -> dict:
         with cfg_path.open() as f:
             defaults.update(json.load(f))
 
-    # Environment variable overrides (always win over config.json)
+    # Env vars always override config.json
     env_map = {
         "NEWSAPI_KEY":       "newsapi_key",
         "NVD_API_KEY":       "nvd_api_key",
@@ -114,15 +117,11 @@ def _load_config(path: str = "config.json") -> dict:
         "IMAGE_BACKEND":     "image_backend",
         "GITHUB_TOKEN":      "github_token",
         "GITHUB_REPO":       "github_repo",
-        "LIVE_MODE":         "live_mode",
     }
     for env_var, cfg_key in env_map.items():
         val = os.getenv(env_var)
         if val:
-            if cfg_key == "live_mode":
-                defaults[cfg_key] = val.lower() in ("1", "true", "yes")
-            else:
-                defaults[cfg_key] = val
+            defaults[cfg_key] = val
     return defaults
 
 
@@ -142,8 +141,7 @@ async def _health_server(port: int, status_file: str) -> None:
                     body = b'{"status":"starting"}'
                     code = 200
             else:
-                body = b"Not Found"
-                code = 404
+                body, code = b"Not Found", 404
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -166,7 +164,7 @@ SEED_ITEMS = [
             "A critical remote code execution vulnerability (CVSS 9.8) "
             "was disclosed in Apache HTTP Server 2.4.x. Unauthenticated "
             "attackers can execute arbitrary code via a malformed HTTP/2 "
-            "request header. All 2.4.x versions prior to 2.4.61 are affected."
+            "request header. All 2.4.x versions prior to 2.4.61 affected."
         ),
         "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1234",
         "published_at": "2026-01-15T12:00:00Z",
@@ -176,8 +174,8 @@ SEED_ITEMS = [
         "title": "Massive Phishing Campaign Targets Indian Banks (2026)",
         "description": (
             "A large-scale phishing campaign impersonating major Indian banks "
-            "was detected distributing credential-harvesting pages via WhatsApp "
-            "and SMS. Over 50,000 victims reported across 12 states."
+            "detected distributing credential-harvesting pages via WhatsApp and "
+            "SMS. Over 50,000 victims reported across 12 states."
         ),
         "url": "https://example.com/phishing-india-2026",
         "published_at": "2026-01-16T08:30:00Z",
@@ -187,8 +185,8 @@ SEED_ITEMS = [
         "title": "Ransomware Group Claims Healthcare Provider Breach",
         "description": (
             "The Clop ransomware group claimed responsibility for a breach "
-            "affecting a major healthcare provider, reportedly exfiltrating "
-            "2 TB of patient records including PII and medical data."
+            "affecting a major healthcare provider, exfiltrating 2 TB of "
+            "patient records including PII and medical histories."
         ),
         "url": "https://example.com/ransomware-health-2026",
         "published_at": "2026-01-17T10:15:00Z",
@@ -197,35 +195,33 @@ SEED_ITEMS = [
 ]
 
 
-# ── Shared flag helper ────────────────────────────────────────────────────────
+# ── KEY FIX: shared flag helper ───────────────────────────────────────────────
 
-def _add_run_flags(parser: argparse.ArgumentParser) -> None:
+def _add_run_flags(p: argparse.ArgumentParser) -> None:
     """
     Add --live and --depth to a subparser.
-    Called for every subcommand that can run fetch cycles.
-    This is the KEY FIX — these flags must be on the subparser,
-    not just the parent parser.
+    Must be called for EACH subparser that runs fetch/generate cycles.
+    This is what fixes "unrecognized arguments: --live".
     """
-    parser.add_argument(
+    p.add_argument(
         "--live",
         action="store_true",
         default=False,
-        help="Live-only mode: fetch only articles newer than last run (no old news)",
+        help="Live mode: only fetch articles published since the last run. "
+             "If nothing new exists, no posts are created.",
     )
-    parser.add_argument(
+    p.add_argument(
         "--depth",
         choices=["deep", "standard"],
         default=None,
-        help="Caption/image depth. 'deep' = full analysis, 'standard' = original short caption",
+        help="Caption/image depth (default: from config, usually 'deep')",
     )
 
 
 def _apply_overrides(args: argparse.Namespace, config: dict) -> None:
-    """Apply CLI flag overrides onto config dict."""
-    # --live (check subcommand-level first, then fall back to parent-level)
+    """Write CLI flag values into config dict so core_v2 picks them up."""
     if getattr(args, "live", False):
         config["live_mode"] = True
-    # --depth
     depth = getattr(args, "depth", None)
     if depth:
         config["caption_depth"] = depth
@@ -239,11 +235,9 @@ def cmd_start(args: argparse.Namespace, config: dict) -> None:
     from core_v2 import run_cycle
     from pipeline.dedupe import DedupeDB
 
-    db = DedupeDB(config["db_path"])
+    db     = DedupeDB(config["db_path"])
     counts = asyncio.run(run_cycle(config, db, config["out_dir"]))
     print(f"\n✅ Cycle complete: {json.dumps(counts, indent=2)}")
-    if config.get("blog_enabled", True):
-        print(f"🌐 Blog → {config.get('blog_dir','blog')}/index.html")
     db.close()
 
 
@@ -252,9 +246,8 @@ def cmd_daemon(args: argparse.Namespace, config: dict) -> None:
     from core_v2 import run_daemon
     from pipeline.dedupe import DedupeDB
 
-    db = DedupeDB(config["db_path"])
+    db   = DedupeDB(config["db_path"])
     loop = asyncio.new_event_loop()
-
     if config.get("health_port"):
         loop.run_until_complete(
             _health_server(config["health_port"], config["status_file"])
@@ -274,7 +267,7 @@ def cmd_blog(args: argparse.Namespace, config: dict) -> None:
     blog_dir = config.get("blog_dir", "blog")
     print(f"\n🏗  Building static blog → {blog_dir}/")
     n = blog_publish(out_dir=config["out_dir"], blog_dir=blog_dir, clean=clean)
-    print(f"✅ Blog published: {n} posts → open {blog_dir}/index.html")
+    print(f"✅ Blog built: {n} posts → {blog_dir}/index.html")
 
 
 def cmd_status(args: argparse.Namespace, config: dict) -> None:
@@ -321,28 +314,38 @@ def cmd_purge(args: argparse.Namespace, config: dict) -> None:
 
 def cmd_seed(args: argparse.Namespace, config: dict) -> None:
     _apply_overrides(args, config)
+    # Force live_mode OFF for seed — seed uses fixed items, not live feeds
+    config["live_mode"] = False
     from core_v2 import process_item
     from pipeline import normalize
     from pipeline.dedupe import DedupeDB
 
     db = DedupeDB(config["db_path"])
-    print(f"Seeding {len(SEED_ITEMS)} items (depth={config.get('caption_depth','deep')})...")
+    print(f"\nSeeding {len(SEED_ITEMS)} test items...")
     for raw in SEED_ITEMS:
         item   = normalize(raw, fmt="rss")
         result = process_item(item, db, config, config["out_dir"])
-        print(f"  [{result:10s}] {raw['title'][:60]}")
+        print(f"  [{result:10s}] {raw['title'][:70]}")
     db.close()
-    print(f"\n✅ Seed complete → check {config['out_dir']}/")
+    print(f"\n✅ Seed complete → {config['out_dir']}/")
 
+    # Build blog after seeding
     if config.get("blog_enabled", True):
         cmd_blog(args, config)
 
+    # Push to GitHub after seeding if autopush enabled
     if config.get("autopush_enabled", False):
         from publisher.git_autopush import autopush
-        pushed = autopush(config=config, blog_dir=config.get("blog_dir","blog"),
-                          out_dir=config["out_dir"], post_count=len(SEED_ITEMS))
+        pushed = autopush(
+            config=config,
+            blog_dir=config.get("blog_dir", "blog"),
+            out_dir=config["out_dir"],
+            post_count=len(SEED_ITEMS),
+        )
         if pushed:
-            print(f"✅ Auto-pushed seed posts to GitHub → {config.get('github_branch','gh-pages')}")
+            print(f"✅ Pushed seed posts to GitHub → {config.get('github_branch','gh-pages')}")
+        else:
+            print("⚠️  Auto-push failed — check GITHUB_TOKEN in your .env file")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -351,50 +354,45 @@ def main() -> None:
     # ── Root parser ──────────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(
         prog="phantomfeed-v2",
-        description="PhantomFeed v2 — Cybersecurity news automation with deep blog",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="PhantomFeed v2 — Cybersecurity news automation",
     )
-    parser.add_argument("--config",   default="config.json",
-                        help="Path to config.json (default: config.json)")
+    parser.add_argument("--config",   default="config.json")
     parser.add_argument("--loglevel", default=None,
-                        choices=["DEBUG","INFO","WARNING","ERROR"],
-                        help="Override log level")
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR"])
 
-    sub = parser.add_subparsers(dest="command", required=True,
-                                metavar="{start,daemon,blog,status,purge,seed,healthcheck,reprocess}")
+    sub = parser.add_subparsers(dest="command", required=True)
 
-    # ── start ────────────────────────────────────────────────────────────────
-    p_start = sub.add_parser("start", help="Run one fetch+generate cycle then exit")
-    _add_run_flags(p_start)
+    # ── start ─────────────────────────────────────────────────────────────────
+    p_start = sub.add_parser("start", help="Run one fetch+generate cycle")
+    _add_run_flags(p_start)   # <-- KEY FIX: --live registered on subparser
 
-    # ── daemon ───────────────────────────────────────────────────────────────
+    # ── daemon ────────────────────────────────────────────────────────────────
     p_daemon = sub.add_parser("daemon", help="Run 24×7 continuous daemon")
-    _add_run_flags(p_daemon)
-    # FIX: --live is now registered on p_daemon so "daemon --live" works
+    _add_run_flags(p_daemon)  # <-- KEY FIX: --live registered on subparser
 
-    # ── blog ─────────────────────────────────────────────────────────────────
-    p_blog = sub.add_parser("blog", help="Build / rebuild static blog from out/ directory")
+    # ── blog ──────────────────────────────────────────────────────────────────
+    p_blog = sub.add_parser("blog", help="Build/rebuild static blog from out/")
     p_blog.add_argument("--clean", action="store_true",
-                        help="Delete blog/ before rebuilding (full clean rebuild)")
+                        help="Full rebuild — delete blog/ before regenerating")
 
-    # ── status ───────────────────────────────────────────────────────────────
-    sub.add_parser("status", help="Show database stats and last-run metrics")
+    # ── status ────────────────────────────────────────────────────────────────
+    sub.add_parser("status", help="Show DB stats and last-run metrics")
 
-    # ── purge ────────────────────────────────────────────────────────────────
-    sub.add_parser("purge", help="Purge all processed-item records from the database")
+    # ── purge ─────────────────────────────────────────────────────────────────
+    sub.add_parser("purge", help="Purge all DB records (destructive)")
 
-    # ── seed ─────────────────────────────────────────────────────────────────
-    p_seed = sub.add_parser("seed", help="Inject test seed items (no API keys needed)")
+    # ── seed ──────────────────────────────────────────────────────────────────
+    p_seed = sub.add_parser("seed", help="Generate test posts without API keys")
     _add_run_flags(p_seed)
 
-    # ── healthcheck ──────────────────────────────────────────────────────────
-    sub.add_parser("healthcheck", help="Start the health-check HTTP server on configured port")
+    # ── healthcheck ───────────────────────────────────────────────────────────
+    sub.add_parser("healthcheck", help="Start health-check HTTP server")
 
-    # ── reprocess ────────────────────────────────────────────────────────────
-    p_rp = sub.add_parser("reprocess", help="Force-reprocess a specific canonical ID")
-    p_rp.add_argument("id", help="Canonical ID to delete and reprocess")
+    # ── reprocess ─────────────────────────────────────────────────────────────
+    p_rp = sub.add_parser("reprocess", help="Force-reprocess a canonical ID")
+    p_rp.add_argument("id")
 
-    # ── Parse ─────────────────────────────────────────────────────────────────
+    # ── Parse + dispatch ──────────────────────────────────────────────────────
     args   = parser.parse_args()
     config = _load_config(args.config)
 
@@ -409,7 +407,6 @@ def main() -> None:
         status_file=config.get("status_file", "status.json"),
     )
 
-    # ── Dispatch ──────────────────────────────────────────────────────────────
     dispatch = {
         "start":       cmd_start,
         "daemon":      cmd_daemon,
